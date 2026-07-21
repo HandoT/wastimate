@@ -232,13 +232,13 @@
   }
   .help-bubble:hover, .help-bubble:focus{border-color:var(--amber);color:var(--amber);outline:none;}
   .help-bubble .tip{
-    display:none;position:absolute;left:50%;bottom:calc(100% + 7px);transform:translateX(-50%);
+    display:none;position:fixed;
     background:var(--panel-alt);border:1px solid var(--border);color:var(--text);
     padding:8px 10px;border-radius:var(--radius);font-size:11.5px;font-family:var(--sans);font-weight:400;
-    width:max-content;max-width:230px;line-height:1.45;z-index:60;text-align:left;
+    width:max-content;max-width:230px;line-height:1.45;z-index:9999;text-align:left;
     box-shadow:0 6px 18px rgba(0,0,0,.3);text-transform:none;letter-spacing:normal;
   }
-  .help-bubble:hover .tip, .help-bubble:focus .tip{display:block;}
+  .help-bubble .tip.tip-visible{display:block;}
   label .help-bubble{margin-left:4px;}
 
   /* ---------- visualize subtabs & network ---------- */
@@ -1056,7 +1056,7 @@
             <select id="state-snapshot-select" onchange="renderStateSnapshot()"></select>
           </div>
           <div class="field checkbox">
-            <input type="checkbox" id="state-show-ages" checked onchange="renderStateSnapshot()">
+            <input type="checkbox" id="state-show-ages" onchange="renderStateSnapshot()">
             <label for="state-show-ages">show package ages</label>
           </div>
         </div>
@@ -1154,6 +1154,44 @@ function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
 function help(text){
   return `<span class="help-bubble" tabindex="0">?<span class="tip">${esc(text)}</span></span>`;
 }
+// Tooltips are positioned in JS (not pure CSS :hover) so they can be clamped to the viewport --
+// a centered-above-the-icon tooltip clips off-screen for any bubble near the right edge, and a
+// plain z-index bump alone doesn't fix that. Event delegation on document means this keeps
+// working no matter how many times the page's HTML gets rebuilt.
+function positionHelpTooltip(bubble){
+  const tip = bubble.querySelector('.tip');
+  if(!tip) return;
+  tip.classList.add('tip-visible');
+  const margin = 8;
+  const iconRect = bubble.getBoundingClientRect();
+  const tipRect = tip.getBoundingClientRect();
+  let left = iconRect.left + iconRect.width/2 - tipRect.width/2;
+  left = Math.max(margin, Math.min(left, window.innerWidth - tipRect.width - margin));
+  let top = iconRect.top - tipRect.height - 7;
+  if(top < margin) top = iconRect.bottom + 7; // not enough room above -- show it below instead
+  tip.style.left = left + 'px';
+  tip.style.top = top + 'px';
+}
+function hideHelpTooltip(bubble){
+  const tip = bubble.querySelector('.tip');
+  if(tip) tip.classList.remove('tip-visible');
+}
+document.addEventListener('mouseover', e=>{
+  const b = e.target.closest('.help-bubble');
+  if(b) positionHelpTooltip(b);
+});
+document.addEventListener('mouseout', e=>{
+  const b = e.target.closest('.help-bubble');
+  if(b && !b.contains(e.relatedTarget)) hideHelpTooltip(b);
+});
+document.addEventListener('focusin', e=>{
+  const b = e.target.closest('.help-bubble');
+  if(b) positionHelpTooltip(b);
+});
+document.addEventListener('focusout', e=>{
+  const b = e.target.closest('.help-bubble');
+  if(b) hideHelpTooltip(b);
+});
 function packageLabels(){ return packages.map(p=>p.label).filter(Boolean); }
 function nodeLabels(){ return nodes.map(n=>n.label).filter(Boolean); }
 function allNuclideLabels(){
@@ -1464,17 +1502,12 @@ function copyPackageLabels(){
     }catch(e){ flash(false); }
   }
 }
-function addPackage(){
-  packages.push({id:nid(), label:'Package'+(packages.length+1), mass:'', volume:'', mode:'atoms', radioactive:true, decay_chain:true, packageDate:'', showAdvanced:false, nuclides:[{name:'',value:''}]});
-  renderPackages();
-}
-function renderPackages(){
-  const el = document.getElementById('packages-list');
-  el.innerHTML = packages.map(p=>`
-    <div class="entry-card">
+function packageCardHtml(p){
+  return `
+    <div class="entry-card" id="pkgcard-${p.id}">
       <button class="remove" onclick="removePackage('${p.id}')">&times;</button>
       <div class="field-grid">
-        <div class="field"><label>Label</label><input type="text" value="${esc(p.label)}" oninput="updatePkg('${p.id}','label',this.value)"></div>
+        <div class="field"><label>Label</label><input type="text" value="${esc(p.label)}" oninput="updatePkgSilent('${p.id}','label',this.value)" onblur="updatePkg('${p.id}','label',this.value)"></div>
         <div class="field"><label>Mass ${help('Total package mass. Required for activity_concentration mode, and for any activity_concentration/heat_concentration criteria that reference this package.')}</label><input type="number" step="any" value="${esc(p.mass)}" oninput="updatePkg('${p.id}','mass',this.value)"></div>
         <div class="field"><label>Volume ${help('Total package volume. Needed for heat_concentration criteria and volume-based reporting.')}</label><input type="number" step="any" value="${esc(p.volume)}" oninput="updatePkg('${p.id}','volume',this.value)"></div>
         <div class="field"><label>Mode ${help('How to interpret the nuclide values below: atoms = raw atom counts, activity = Bq, activity_concentration = Bq per unit mass (must match the Mass unit).')}</label>
@@ -1515,7 +1548,24 @@ function renderPackages(){
         </div>
         <button class="ghost small" style="margin-top:8px;" onclick="addNuc('${p.id}')">+ nuclide</button>
       </div>
-    </div>`).join('') || '<p class="empty-hint">No packages yet.</p>';
+    </div>`;
+}
+function renderPackages(){
+  const el = document.getElementById('packages-list');
+  el.innerHTML = packages.map(p=>packageCardHtml(p)).join('') || '<p class="empty-hint">No packages yet.</p>';
+  document.getElementById('count-packages').textContent = packages.length;
+  renderNodes(); renderSources(); renderOrders();
+  buildXML();
+}
+function addPackage(){
+  const p = {id:nid(), label:'Package'+(packages.length+1), mass:'', volume:'', mode:'atoms', radioactive:true, decay_chain:true, packageDate:'', showAdvanced:false, nuclides:[{name:'',value:''}]};
+  packages.push(p);
+  // Append just the new card instead of rebuilding every existing card -- rebuilding the whole
+  // list on every add made creating N packages an O(N^2) operation, which is what made adding
+  // 100+ packages one at a time feel like it was getting slower and slower as you went.
+  const el = document.getElementById('packages-list');
+  if(packages.length === 1) el.innerHTML = ''; // clear the "No packages yet" placeholder
+  el.insertAdjacentHTML('beforeend', packageCardHtml(p));
   document.getElementById('count-packages').textContent = packages.length;
   renderNodes(); renderSources(); renderOrders();
   buildXML();
@@ -1526,6 +1576,7 @@ function updatePkg(id,key,val){
   if(key==='packageDate' || key==='showAdvanced' || key==='mode'){ renderPackages(); return; }
   buildXML();
 }
+function updatePkgSilent(id,key,val){ const p=packages.find(x=>x.id===id); if(p) p[key]=val; buildXML(); }
 function addNuc(id){ packages.find(p=>p.id===id).nuclides.push({name:'',value:''}); renderPackages(); }
 function removeNuc(id,i){ packages.find(p=>p.id===id).nuclides.splice(i,1); renderPackages(); }
 function updateNuc(id,i,key,val){ packages.find(p=>p.id===id).nuclides[i][key]=val; buildXML(); }
@@ -1534,6 +1585,23 @@ function removePackage(id){ packages = packages.filter(p=>p.id!==id); renderPack
 /* ===================== NODES ===================== */
 function defaultNodePosition(index){
   return { nx: 70 + (index % 5) * 250, ny: 50 + Math.floor(index / 5) * 210 };
+}
+function nodePositionWithinViewport(index){
+  const boxW = 176, boxH = 78, pad = 20, cellW = 250, cellH = 210;
+  if(!networkViewport || networkViewport.w < boxW + pad*2 || networkViewport.h < boxH + pad*2){
+    return defaultNodePosition(index);
+  }
+  const cols = Math.max(1, Math.floor((networkViewport.w - pad*2) / cellW));
+  const col = index % cols, row = Math.floor(index / cols);
+  let nx = networkViewport.x + pad + col*cellW;
+  let ny = networkViewport.y + pad + row*cellH;
+  // clamp so the whole node box stays fully inside the current viewport, even once the cascade
+  // would otherwise run past the bottom/right edge
+  nx = Math.min(nx, networkViewport.x + networkViewport.w - boxW - pad);
+  ny = Math.min(ny, networkViewport.y + networkViewport.h - boxH - pad);
+  nx = Math.max(nx, networkViewport.x + pad);
+  ny = Math.max(ny, networkViewport.y + pad);
+  return { nx, ny };
 }
 function nodeCurrentPos(nodeId){
   const idx = nodes.findIndex(n=>n.id===nodeId);
@@ -1546,7 +1614,7 @@ function defaultSourceOffset(idxAmongSameNode){
   return { dx: -30, dy: 14 + (idxAmongSameNode % 3) * 16 };
 }
 function addNode(){
-  nodes.push(Object.assign({id:nid(), label:'Node'+(nodes.length+1), contents:[]}, defaultNodePosition(nodes.length)));
+  nodes.push(Object.assign({id:nid(), label:'Node'+(nodes.length+1), contents:[]}, nodePositionWithinViewport(nodes.length)));
   renderNodes();
 }
 function nodeContentCount(n, label){
@@ -1579,12 +1647,72 @@ function removeOnePackageFromNode(nodeId, label, evt){
   else n.contents[idx] = `${lbl}*${newMult}`;
   renderNodes();
 }
+const PKG_BUTTON_SEARCH_THRESHOLD = 24;
+function pkgButtonRowHtml(n, allLabels, searchTerm){
+  if(!allLabels.length) return '<span class="empty-hint">Add a package above first.</span>';
+  let shownLabels;
+  if(allLabels.length <= PKG_BUTTON_SEARCH_THRESHOLD){
+    shownLabels = allLabels;
+  } else {
+    const presentLabels = allLabels.filter(lbl => nodeContentCount(n, lbl) > 0);
+    const t = (searchTerm||'').toLowerCase().trim();
+    const matched = t ? allLabels.filter(lbl => lbl.toLowerCase().includes(t)) : [];
+    // always show packages already in this node, even without a search term, so they stay visible/removable
+    shownLabels = Array.from(new Set([...presentLabels, ...matched]));
+  }
+  if(!shownLabels.length) return '<span class="empty-hint">Type above to find a package to add.</span>';
+  return shownLabels.map(lbl=>{
+    const count = nodeContentCount(n, lbl);
+    return `<button type="button" class="pkg-btn ${count>0?'present':''}" onclick="addPackageToNode('${n.id}','${esc(lbl)}')" title="click to add one more ${esc(lbl)}">
+      ${esc(lbl)}${count>0?` <span class="pkg-btn-count" onclick="removeOnePackageFromNode('${n.id}','${esc(lbl)}',event)" title="remove one">&times;${count}</span>`:''}
+    </button>`;
+  }).join('');
+}
+function filterNodePackageButtons(nodeId, term){
+  const n = nodes.find(x=>x.id===nodeId);
+  if(!n) return;
+  n.pkgSearch = term;
+  const row = document.getElementById('pkgbtnrow-'+nodeId);
+  if(row) row.innerHTML = pkgButtonRowHtml(n, packageLabels(), term);
+}
+function actionToggleRowHtml(actionId, fieldName, allLabels, currentValueStr, searchTerm){
+  if(!allLabels.length) return null;
+  let shownLabels;
+  if(allLabels.length <= PKG_BUTTON_SEARCH_THRESHOLD){
+    shownLabels = allLabels;
+  } else {
+    const includedLabels = allLabels.filter(lbl => actionListHasToken(currentValueStr, lbl));
+    const t = (searchTerm||'').toLowerCase().trim();
+    const matched = t ? allLabels.filter(lbl => lbl.toLowerCase().includes(t)) : [];
+    shownLabels = Array.from(new Set([...includedLabels, ...matched]));
+  }
+  if(!shownLabels.length) return '<span class="empty-hint">Type above to search.</span>';
+  return shownLabels.map(lbl=>{
+    const included = actionListHasToken(currentValueStr, lbl);
+    return `<button type="button" class="pkg-btn ${included?'present':''}" onclick="toggleActionListField('${actionId}','${fieldName}','${esc(lbl)}')">${esc(lbl)}</button>`;
+  }).join('');
+}
+function actionToggleSearchHtml(actionId, fieldName, allLabels, currentSearch){
+  if(allLabels.length <= PKG_BUTTON_SEARCH_THRESHOLD) return '';
+  return `<input type="text" placeholder="Search... (${allLabels.length} total)" value="${esc(currentSearch||'')}" oninput="filterActionToggleRow('${actionId}','${fieldName}',this.value)" style="margin-bottom:8px;">`;
+}
+function filterActionToggleRow(actionId, fieldName, term){
+  const a = actions.find(x=>x.id===actionId);
+  if(!a) return;
+  a[fieldName+'Search'] = term;
+  const row = document.getElementById(`actbtnrow-${actionId}-${fieldName}`);
+  if(!row) return;
+  const allLabels = fieldName==='nodes' ? nodeLabels() : fieldName==='packages' ? packageLabels() : allNuclideLabels();
+  row.innerHTML = actionToggleRowHtml(actionId, fieldName, allLabels, a[fieldName], term) || '<span class="empty-hint">No matches.</span>';
+}
 function nodeCardHtml(n){
+  const allLabels = packageLabels();
+  const showSearch = allLabels.length > PKG_BUTTON_SEARCH_THRESHOLD;
   return `
     <div class="entry-card" id="nodecard-${n.id}">
       <button class="remove" onclick="removeNode('${n.id}')">&times;</button>
       <div class="field-grid">
-        <div class="field"><label>Label</label><input type="text" value="${esc(n.label)}" oninput="updateNode('${n.id}','label',this.value)"></div>
+        <div class="field"><label>Label</label><input type="text" value="${esc(n.label)}" oninput="updateNodeSilent('${n.id}','label',this.value)" onblur="updateNode('${n.id}','label',this.value)"></div>
         <div class="field span-full"><label>Initial contents (package labels, optionally label*N &mdash; drag corner to resize) ${help('Which packages start out in this node when the simulation begins. Use label*N to add N copies of the same package at once.')}</label>
           <textarea class="resize-v" rows="2" placeholder="e.g. Package1 Package2*3"
             oninput="updateNode('${n.id}','contents',this.value.split(/\\s+/).filter(Boolean))"
@@ -1592,14 +1720,10 @@ function nodeCardHtml(n){
         </div>
       </div>
       <div class="subblock">
-        <div class="subblock-title">Add packages</div>
-        <div class="pkg-btn-row">
-          ${packageLabels().map(lbl=>{
-            const count = nodeContentCount(n, lbl);
-            return `<button type="button" class="pkg-btn ${count>0?'present':''}" onclick="addPackageToNode('${n.id}','${esc(lbl)}')" title="click to add one more ${esc(lbl)}">
-              ${esc(lbl)}${count>0?` <span class="pkg-btn-count" onclick="removeOnePackageFromNode('${n.id}','${esc(lbl)}',event)" title="remove one">&times;${count}</span>`:''}
-            </button>`;
-          }).join('') || '<span class="empty-hint">Add a package above first.</span>'}
+        <div class="subblock-title">Add packages${showSearch ? ` <span class="hint">(${allLabels.length} total &mdash; search to find one)</span>` : ''}</div>
+        ${showSearch ? `<input type="text" placeholder="Search packages to add..." value="${esc(n.pkgSearch||'')}" oninput="filterNodePackageButtons('${n.id}', this.value)" style="margin-bottom:8px;">` : ''}
+        <div class="pkg-btn-row" id="pkgbtnrow-${n.id}">
+          ${pkgButtonRowHtml(n, allLabels, n.pkgSearch)}
         </div>
       </div>
     </div>`;
@@ -1612,7 +1736,8 @@ function renderNodes(){
   buildXML();
 }
 function updateNode(id,key,val){ const n=nodes.find(x=>x.id===id); n[key]=val; if(key==='label'){renderSources();renderOrders();renderActions();} buildXML(); }
-function removeNode(id){ nodes = nodes.filter(n=>n.id!==id); if(networkSelection && networkSelection.type==='node' && networkSelection.id===id) networkSelection=null; renderNodes(); if(typeof renderNetworkInspector==='function') renderNetworkInspector(); }
+function updateNodeSilent(id,key,val){ const n=nodes.find(x=>x.id===id); if(n) n[key]=val; buildXML(); }
+function removeNode(id){ nodes = nodes.filter(n=>n.id!==id); if(networkSelection && networkSelection.type==='node' && networkSelection.id===id) networkSelection=null; renderNodes(); if(typeof renderNetworkDiagram==='function') renderNetworkDiagram(); if(typeof renderNetworkInspector==='function') renderNetworkInspector(); }
 
 /* ===================== SOURCES ===================== */
 function addSource(){ sources.push({id:nid(), label:'Source'+(sources.length+1), awaynode:'', package:'', magnitude:1, rate:0}); renderSources(); }
@@ -1636,7 +1761,7 @@ function renderSources(){
   buildXML();
 }
 function updateSrc(id,key,val){ sources.find(s=>s.id===id)[key]=val; buildXML(); }
-function removeSource(id){ sources = sources.filter(s=>s.id!==id); if(networkSelection && networkSelection.type==='source' && networkSelection.id===id) networkSelection=null; renderSources(); if(typeof renderNetworkInspector==='function') renderNetworkInspector(); }
+function removeSource(id){ sources = sources.filter(s=>s.id!==id); if(networkSelection && networkSelection.type==='source' && networkSelection.id===id) networkSelection=null; renderSources(); if(typeof renderNetworkDiagram==='function') renderNetworkDiagram(); if(typeof renderNetworkInspector==='function') renderNetworkInspector(); }
 
 /* ===================== ORDERS ===================== */
 const DECAY_TYPES = ['alpha','beta-','beta+','ec','it','sf','n','p'];
@@ -1652,12 +1777,14 @@ function addCriterion(oid){
   // keep any existing alternative-combination rows the same length as the criteria list
   (o.conditions||[]).forEach(cond=>cond.push(true));
   renderOrders();
+  if(typeof renderNetworkInspector==='function') renderNetworkInspector();
 }
 function updateCriterion(oid,i,key,val){
   const c = orders.find(o=>o.id===oid).criteria[i];
   c[key]=val;
   if(key==='variable' && isMixVariable(val)) c.advanced = true; // mix criteria always need their nuclide list emitted
   renderOrders();
+  if(typeof renderNetworkInspector==='function') renderNetworkInspector();
 }
 function removeCriterion(oid,i){
   const o = orders.find(o=>o.id===oid);
@@ -1666,21 +1793,24 @@ function removeCriterion(oid,i){
   // a combination needs at least 2 criteria to mean anything
   if(o.criteria.length<2) o.conditions = [];
   renderOrders();
+  if(typeof renderNetworkInspector==='function') renderNetworkInspector();
 }
 function addCondition(oid){
   const o = orders.find(o=>o.id===oid);
   o.conditions = o.conditions || [];
   o.conditions.push(o.criteria.map(()=>true));
   renderOrders();
+  if(typeof renderNetworkInspector==='function') renderNetworkInspector();
 }
-function removeCondition(oid,ci){ orders.find(o=>o.id===oid).conditions.splice(ci,1); renderOrders(); }
-function toggleCondition(oid,condi,ci,val){ orders.find(o=>o.id===oid).conditions[condi][ci]=val; renderOrders(); }
+function removeCondition(oid,ci){ orders.find(o=>o.id===oid).conditions.splice(ci,1); renderOrders(); if(typeof renderNetworkInspector==='function') renderNetworkInspector(); }
+function toggleCondition(oid,condi,ci,val){ orders.find(o=>o.id===oid).conditions[condi][ci]=val; renderOrders(); if(typeof renderNetworkInspector==='function') renderNetworkInspector(); }
 function addFilterRow(oid,ci,kind){
   orders.find(o=>o.id===oid).criteria[ci].filters.push({id:nid(), kind, nuclideName:'', decayType:'alpha', decayTypeCustom:'', hlCompare:'-', hlMagnitude:'', hlUnit:'y', tokenValue:''});
   renderOrders();
+  if(typeof renderNetworkInspector==='function') renderNetworkInspector();
 }
-function updateFilterRow(oid,ci,fi,key,val){ orders.find(o=>o.id===oid).criteria[ci].filters[fi][key]=val; renderOrders(); }
-function removeFilterRow(oid,ci,fi){ orders.find(o=>o.id===oid).criteria[ci].filters.splice(fi,1); renderOrders(); }
+function updateFilterRow(oid,ci,fi,key,val){ orders.find(o=>o.id===oid).criteria[ci].filters[fi][key]=val; renderOrders(); if(typeof renderNetworkInspector==='function') renderNetworkInspector(); }
+function removeFilterRow(oid,ci,fi){ orders.find(o=>o.id===oid).criteria[ci].filters.splice(fi,1); renderOrders(); if(typeof renderNetworkInspector==='function') renderNetworkInspector(); }
 
 function renderFilterRow(o,ci,c,f,fi){
   let inner = '';
@@ -1733,7 +1863,7 @@ function orderCardHtml(o){
     <div class="entry-card" id="ordercard-${o.id}">
       <button class="remove" onclick="removeOrder('${o.id}')">&times;</button>
       <div class="field-grid">
-        <div class="field"><label>Label</label><input type="text" value="${esc(o.label)}" oninput="updateOrd('${o.id}','label',this.value)"></div>
+        <div class="field"><label>Label</label><input type="text" value="${esc(o.label)}" oninput="updateOrdSilent('${o.id}','label',this.value)" onblur="updateOrd('${o.id}','label',this.value)"></div>
         <div class="field"><label>Mode ${help('transfer = move packages, combine = merge several into one, separate = split off part of a package, sort = reorder within a node, batch = group into fixed-size batches.')}</label>
           <select onchange="updateOrd('${o.id}','mode',this.value)">
             ${['transfer','combine','separate','sort','batch'].map(m=>`<option value="${m}" ${o.mode===m?'selected':''}>${m}</option>`).join('')}
@@ -1741,7 +1871,7 @@ function orderCardHtml(o){
         </div>
         <div class="field"><label>Home node ${help('The destination node packages get moved to.')}</label><select onchange="updateOrd('${o.id}','homenode',this.value)"><option value=""></option>${optionList(nodeLabels(), o.homenode)}</select></div>
         <div class="field span2"><label>Order nodes (source pool) ${help('The node(s) this order searches for eligible packages in.')}</label><select multiple onchange="updateOrd('${o.id}','ordernodes',Array.from(this.selectedOptions).map(x=>x.value))">${multiOptionList(nodeLabels(), o.ordernodes)}</select></div>
-        <div class="field"><label>Magnitude</label><input type="number" step="any" value="${esc(o.magnitude)}" oninput="updateOrd('${o.id}','magnitude',this.value)"><span class="hint">packages moved per timestep</span></div>
+        <div class="field"><label>Magnitude</label><input type="number" step="any" value="${esc(o.magnitude)}" oninput="updateOrdSilent('${o.id}','magnitude',this.value)" onblur="updateOrd('${o.id}','magnitude',this.value)"><span class="hint">packages moved per timestep</span></div>
       </div>
 
       <label class="advanced-toggle">
@@ -1756,8 +1886,8 @@ function orderCardHtml(o){
             ${['old','new','mix','all'].map(m=>`<option value="${m}" ${o.direction===m?'selected':''}>${m}</option>`).join('')}
           </select>
         </div>
-        <div class="field"><label>Mix ratio ${help('Only used when Direction is "mix" — fraction of moved packages taken from the oldest end vs newest end.')}</label><input type="number" step="any" value="${esc(o.mixratio)}" oninput="updateOrd('${o.id}','mixratio',this.value)"></div>
-        <div class="field"><label>Rate (steps) ${help('How many simulation steps between times this order runs. 0 = runs every step.')}</label><input type="number" value="${esc(o.rate)}" oninput="updateOrd('${o.id}','rate',this.value)"></div>
+        <div class="field"><label>Mix ratio ${help('Only used when Direction is "mix" — fraction of moved packages taken from the oldest end vs newest end.')}</label><input type="number" step="any" value="${esc(o.mixratio)}" oninput="updateOrdSilent('${o.id}','mixratio',this.value)" onblur="updateOrd('${o.id}','mixratio',this.value)"></div>
+        <div class="field"><label>Rate (steps) ${help('How many simulation steps between times this order runs. 0 = runs every step.')}</label><input type="number" value="${esc(o.rate)}" oninput="updateOrdSilent('${o.id}','rate',this.value)" onblur="updateOrd('${o.id}','rate',this.value)"></div>
         <div class="field checkbox"><input type="checkbox" id="cr-${o.id}" ${o.crumbs?'checked':''} onchange="updateOrd('${o.id}','crumbs',this.checked)"><label for="cr-${o.id}">crumbs</label>${help('Allow the order to run even when there are fewer packages available than the magnitude — it just moves whatever is there instead of skipping the step entirely.')}</div>
       </div>` : ''}
 
@@ -1765,14 +1895,14 @@ function orderCardHtml(o){
         <div class="subblock">
           <div class="subblock-title">Separate instruction</div>
           <div class="field-grid">
-            <div class="field"><label>package_mass ${help('The mass to split off into the new (moved) package; the rest stays behind.')}</label><input type="number" step="any" value="${esc(o.packageMass)}" oninput="updateOrd('${o.id}','packageMass',this.value)"></div>
+            <div class="field"><label>package_mass ${help('The mass to split off into the new (moved) package; the rest stays behind.')}</label><input type="number" step="any" value="${esc(o.packageMass)}" oninput="updateOrdSilent('${o.id}','packageMass',this.value)" onblur="updateOrd('${o.id}','packageMass',this.value)"></div>
           </div>
         </div>` : ''}
       ${o.mode==='combine' || o.mode==='batch' ? `
         <div class="subblock">
           <div class="subblock-title">${o.mode} instruction</div>
           <div class="field-grid">
-            <div class="field"><label>package_out ${help(o.mode==='batch' ? 'How many packages to group into each output batch.' : 'Number of separate output packages to combine the selection down into.')}</label><input type="number" value="${esc(o.packageOut)}" oninput="updateOrd('${o.id}','packageOut',this.value)"></div>
+            <div class="field"><label>package_out ${help(o.mode==='batch' ? 'How many packages to group into each output batch.' : 'Number of separate output packages to combine the selection down into.')}</label><input type="number" value="${esc(o.packageOut)}" oninput="updateOrdSilent('${o.id}','packageOut',this.value)" onblur="updateOrd('${o.id}','packageOut',this.value)"></div>
           </div>
         </div>` : ''}
       ${o.mode==='sort' ? `
@@ -1871,7 +2001,8 @@ function renderOrders(){
   buildXML();
 }
 function updateOrd(id,key,val){ orders.find(o=>o.id===id)[key]=val; renderOrders(); }
-function removeOrder(id){ orders = orders.filter(o=>o.id!==id); if(networkSelection && networkSelection.type==='order' && networkSelection.id===id) networkSelection=null; renderOrders(); if(typeof renderNetworkInspector==='function') renderNetworkInspector(); }
+function updateOrdSilent(id,key,val){ const o=orders.find(x=>x.id===id); if(o) o[key]=val; buildXML(); }
+function removeOrder(id){ orders = orders.filter(o=>o.id!==id); if(networkSelection && networkSelection.type==='order' && networkSelection.id===id) networkSelection=null; renderOrders(); if(typeof renderNetworkDiagram==='function') renderNetworkDiagram(); if(typeof renderNetworkInspector==='function') renderNetworkInspector(); }
 function updateCriterionSilent(oid,ci,key,val){ orders.find(o=>o.id===oid).criteria[ci][key]=val; buildXML(); }
 
 /* ===================== ACTIONS ===================== */
@@ -1947,30 +2078,24 @@ function renderActions(){
         ${!a.nodesAll ? `
         <div class="subblock">
           <div class="subblock-title">Nodes to include</div>
-          <div class="pkg-btn-row">
-            ${nodeLabels().map(lbl=>{
-              const included = actionListHasToken(a.nodes, lbl);
-              return `<button type="button" class="pkg-btn ${included?'present':''}" onclick="toggleActionListField('${a.id}','nodes','${esc(lbl)}')">${esc(lbl)}</button>`;
-            }).join('') || '<span class="empty-hint">No nodes defined yet.</span>'}
+          ${actionToggleSearchHtml(a.id, 'nodes', nodeLabels(), a.nodesSearch)}
+          <div class="pkg-btn-row" id="actbtnrow-${a.id}-nodes">
+            ${actionToggleRowHtml(a.id, 'nodes', nodeLabels(), a.nodes, a.nodesSearch) || '<span class="empty-hint">No nodes defined yet.</span>'}
           </div>
         </div>` : ''}
         ${!a.packagesAll ? `
         <div class="subblock">
           <div class="subblock-title">Packages to include</div>
-          <div class="pkg-btn-row">
-            ${packageLabels().map(lbl=>{
-              const included = actionListHasToken(a.packages, lbl);
-              return `<button type="button" class="pkg-btn ${included?'present':''}" onclick="toggleActionListField('${a.id}','packages','${esc(lbl)}')">${esc(lbl)}</button>`;
-            }).join('') || '<span class="empty-hint">No packages defined yet.</span>'}
+          ${actionToggleSearchHtml(a.id, 'packages', packageLabels(), a.packagesSearch)}
+          <div class="pkg-btn-row" id="actbtnrow-${a.id}-packages">
+            ${actionToggleRowHtml(a.id, 'packages', packageLabels(), a.packages, a.packagesSearch) || '<span class="empty-hint">No packages defined yet.</span>'}
           </div>
         </div>` : ''}
         <div class="subblock">
           <div class="subblock-title">Nuclides to include (none selected = all)</div>
-          <div class="pkg-btn-row">
-            ${allNuclideLabels().map(nuc=>{
-              const included = actionListHasToken(a.nuclides, nuc);
-              return `<button type="button" class="pkg-btn ${included?'present':''}" onclick="toggleActionListField('${a.id}','nuclides','${esc(nuc)}')">${esc(nuc)}</button>`;
-            }).join('') || '<span class="empty-hint">No nuclides found in any package yet.</span>'}
+          ${actionToggleSearchHtml(a.id, 'nuclides', allNuclideLabels(), a.nuclidesSearch)}
+          <div class="pkg-btn-row" id="actbtnrow-${a.id}-nuclides">
+            ${actionToggleRowHtml(a.id, 'nuclides', allNuclideLabels(), a.nuclides, a.nuclidesSearch) || '<span class="empty-hint">No nuclides found in any package yet.</span>'}
           </div>
         </div>`;
     } else if(a.type==='organize_node'){
@@ -2278,15 +2403,7 @@ function buildXML(){
   lines.push('</wastimate_model>');
   const xml = lines.join('\n');
   document.getElementById('xml-preview').textContent = xml;
-  if(typeof renderNetworkDiagram === 'function') renderNetworkDiagram();
-  if(typeof renderNetworkInspector === 'function'){
-    const inspectorEl = document.getElementById('network-inspector');
-    const active = document.activeElement;
-    const isTypingField = active && (active.tagName==='TEXTAREA' || (active.tagName==='INPUT' && (active.type==='text' || active.type==='number')));
-    // don't blow away focus mid-keystroke if the user is actively typing inside the inspector —
-    // but checkboxes, selects, and buttons need an immediate re-render or their effect never shows up.
-    if(!(inspectorEl && active && inspectorEl.contains(active) && isTypingField)) renderNetworkInspector();
-  }
+  if(typeof scheduleNetworkRender === 'function') scheduleNetworkRender();
   return xml;
 }
 
@@ -2457,6 +2574,7 @@ function importModelXML(xmlText){
 
   // commit
   packages = newPackages; nodes = newNodes; sources = newSources; orders = newOrders; actions = newActions;
+  networkViewport = null; networkViewportLocked = false; networkGroups = []; networkSelection = null;
   const stepsizeEl = document.getElementById('u-stepsize'), stepunitEl = document.getElementById('u-stepunit'), coresEl = document.getElementById('u-cores');
   if(stepsizeEl) stepsizeEl.value = uStepSize;
   if(stepunitEl) stepunitEl.value = uStepUnit;
@@ -2728,17 +2846,14 @@ function renderNetworkDiagram(){
     pos[n.id] = { x: (n.nx ?? def.nx), y: (n.ny ?? def.ny), w:boxW, h:boxH, node:n };
   });
 
-  // The viewport is deliberately persistent — see the state comment above. It only grows to keep
-  // new/moved content in view; it never shrinks or re-centers on its own, and once the user has
-  // zoomed, panned, or touched a group box, it's frozen completely.
+  // The viewport is deliberately persistent — see the state comment above. It's fit to content
+  // exactly once (the first time there's anything to show), then locked immediately: nothing
+  // auto-grows or re-centers as nodes move or get added. Zoom/pan/"reset view" are the only ways
+  // the visible area changes from then on.
   const contentBounds = computeNetworkContentBounds(pos);
   if(!networkViewport && contentBounds){
     networkViewport = { x: contentBounds.minX, y: contentBounds.minY, w: contentBounds.maxX-contentBounds.minX, h: contentBounds.maxY-contentBounds.minY };
-  } else if(networkViewport && !networkViewportLocked && contentBounds){
-    if(contentBounds.minX < networkViewport.x){ networkViewport.w += networkViewport.x - contentBounds.minX; networkViewport.x = contentBounds.minX; }
-    if(contentBounds.minY < networkViewport.y){ networkViewport.h += networkViewport.y - contentBounds.minY; networkViewport.y = contentBounds.minY; }
-    if(contentBounds.maxX > networkViewport.x + networkViewport.w) networkViewport.w = contentBounds.maxX - networkViewport.x;
-    if(contentBounds.maxY > networkViewport.y + networkViewport.h) networkViewport.h = contentBounds.maxY - networkViewport.y;
+    networkViewportLocked = true;
   }
   const minX = networkViewport.x, minY = networkViewport.y;
   const maxX = networkViewport.x + networkViewport.w, maxY = networkViewport.y + networkViewport.h;
@@ -2870,7 +2985,16 @@ function scheduleNetworkRender(){
   if(networkRenderScheduled) return;
   networkRenderScheduled = true;
   const raf = (typeof requestAnimationFrame === 'function') ? requestAnimationFrame : (cb=>setTimeout(cb, 16));
-  raf(()=>{ networkRenderScheduled = false; renderNetworkDiagram(); });
+  raf(()=>{
+    networkRenderScheduled = false;
+    renderNetworkDiagram();
+    if(typeof renderNetworkInspector === 'function'){
+      const inspectorEl = document.getElementById('network-inspector');
+      const active = document.activeElement;
+      const isTypingField = active && (active.tagName==='TEXTAREA' || (active.tagName==='INPUT' && (active.type==='text' || active.type==='number')));
+      if(!(inspectorEl && active && inspectorEl.contains(active) && isTypingField)) renderNetworkInspector();
+    }
+  });
 }
 function svgPointFromEvent(svgEl, evt){
   if(typeof svgEl.createSVGPoint === 'function' && typeof svgEl.getScreenCTM === 'function'){
@@ -3125,7 +3249,10 @@ function createOrderBetween(fromNodeId, toNodeId){
     criteria:[], conditions:[], packageOut:'', packageMass:'', sortNode:''};
   orders.push(o);
   networkSelection = {type:'order', id:o.id};
-  renderOrders(); // cascades to buildXML -> renderNetworkDiagram, and refreshes the Build tab list too
+  renderOrders(); // refreshes the Build tab list too; also cascades to buildXML, but that only
+                   // schedules a deferred diagram redraw (for coalescing rapid-fire changes) --
+                   // this is a discrete one-shot action, so render the diagram synchronously here.
+  renderNetworkDiagram();
   renderNetworkInspector();
 }
 function selectNetworkElement(type, id){
@@ -3314,7 +3441,7 @@ function renderStateSnapshot(){
   const nodesTbl = document.getElementById('state-nodes-table');
   if(!doc){ nodesTbl.innerHTML = '<tbody><tr><td>Could not parse this file.</td></tr></tbody>'; return; }
 
-  const showAges = document.getElementById('state-show-ages')?.checked ?? true;
+  const showAges = document.getElementById('state-show-ages')?.checked ?? false;
 
   // nodes: <nodes><node label mass volume><label>pkg1 pkg2..</label><age>a1 a2..</age></node></nodes>
   const nodeEls = Array.from(doc.querySelectorAll('nodes > node'));
