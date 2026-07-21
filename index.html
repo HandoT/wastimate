@@ -1199,6 +1199,27 @@ function allNuclideLabels(){
   packages.forEach(p=> (p.nuclides||[]).forEach(n=>{ if(n.name) set.add(normalizeNuclide(n.name)); }));
   return Array.from(set).sort();
 }
+// Like allNuclideLabels(), but also includes any nuclides the user has manually added to this
+// action's selection (e.g. expected decay daughters that will grow in but were never typed into
+// a package), so they still show up as a toggleable button instead of disappearing.
+function actionNuclideLabels(a){
+  const set = new Set(allNuclideLabels());
+  (a.nuclides||'').split(/\s+/).filter(Boolean).forEach(n=> set.add(n));
+  return Array.from(set).sort();
+}
+function addSpecificNuclideToAction(actionId){
+  const input = document.getElementById(`addnuc-${actionId}`);
+  if(!input) return;
+  const raw = input.value.trim();
+  if(!raw) return;
+  const a = actions.find(x=>x.id===actionId);
+  if(!a) return;
+  const normalized = normalizeNuclide(raw);
+  const tokens = (a.nuclides||'').split(/\s+/).filter(Boolean);
+  if(!tokens.includes(normalized)) tokens.push(normalized);
+  a.nuclides = tokens.join(' ');
+  renderActions();
+}
 // Canonical variable names/labels — the GUI always shows the friendly label; only buildXML()
 // ever writes the raw snake_case value, since that's what the simulator actually requires.
 const CRITERIA_VARIABLE_DEFS = [
@@ -2009,7 +2030,7 @@ function updateCriterionSilent(oid,ci,key,val){ orders.find(o=>o.id===oid).crite
 function addAction(type){
   const base = {id:nid(), type};
   if(type==='progress_time') Object.assign(base,{steps:10});
-  if(type==='save_results') Object.assign(base,{filename:'results.xlsx', nodesAll:true, nodes:'', packagesAll:true, packages:'', variables:'mass activity', nuclides:'', times:''});
+  if(type==='save_results') Object.assign(base,{filename:'results.xlsx', nodesAll:true, nodes:'', packagesAll:true, packages:'', variables:'mass activity', nuclides:'', nuclideMode:'total', aggMode:'sum', times:''});
   if(type==='save_state') Object.assign(base,{filename:'state.xml'});
   if(type==='organize_node') Object.assign(base,{
     filename:'storage_output.xlsx', node:'', mode:'closure', plot:'image', timeunit:'a',
@@ -2092,10 +2113,37 @@ function renderActions(){
           </div>
         </div>` : ''}
         <div class="subblock">
-          <div class="subblock-title">Nuclides to include (none selected = all)</div>
-          ${actionToggleSearchHtml(a.id, 'nuclides', allNuclideLabels(), a.nuclidesSearch)}
+          <div class="subblock-title">Nuclides ${help('Most radionuclides in your results will be decay-chain daughters that grow in over time, not ones you typed into a package — they will not show up as buttons below unless you add them yourself or use "All nuclides".')}</div>
+          <div class="field">
+            <label>Mode</label>
+            <select onchange="updateAction('${a.id}','nuclideMode',this.value)">
+              <option value="total" ${a.nuclideMode==='total'?'selected':''}>Total (summed across every nuclide)</option>
+              <option value="all" ${a.nuclideMode==='all'?'selected':''}>All nuclides, broken down individually</option>
+              <option value="specific" ${a.nuclideMode==='specific'?'selected':''}>Specific nuclides only</option>
+            </select>
+          </div>
+          ${a.nuclideMode==='all' ? `<p class="empty-hint" style="margin-top:6px;">Includes every nuclide the simulator tracks for these packages, including ones that grow in from decay (e.g. daughters of U-238) — not just what you typed into a package.</p>` : ''}
+          ${a.nuclideMode==='specific' ? `
+          <p class="empty-hint" style="margin-top:6px;">Pick from what is already in a package below, or type in any other nuclide (e.g. an expected decay daughter) and add it.</p>
+          <div style="display:flex;gap:8px;margin:8px 0;flex-wrap:wrap;">
+            <input type="text" list="nuclide-suggestions" id="addnuc-${a.id}" placeholder="e.g. Th234" style="flex:1;min-width:160px;">
+            <button class="ghost small" onclick="addSpecificNuclideToAction('${a.id}')">+ add</button>
+          </div>
+          ${actionToggleSearchHtml(a.id, 'nuclides', actionNuclideLabels(a), a.nuclidesSearch)}
           <div class="pkg-btn-row" id="actbtnrow-${a.id}-nuclides">
-            ${actionToggleRowHtml(a.id, 'nuclides', allNuclideLabels(), a.nuclides, a.nuclidesSearch) || '<span class="empty-hint">No nuclides found in any package yet.</span>'}
+            ${actionToggleRowHtml(a.id, 'nuclides', actionNuclideLabels(a), a.nuclides, a.nuclidesSearch) || '<span class="empty-hint">No nuclides yet — add one above.</span>'}
+          </div>` : ''}
+        </div>
+        <div class="subblock">
+          <div class="subblock-title">Aggregation ${help('How values combine when more than one thing is being merged into a single number — multiple packages in a node, multiple timesteps, etc.')}</div>
+          <div class="field">
+            <label>Mode</label>
+            <select onchange="updateAction('${a.id}','aggMode',this.value)">
+              <option value="sum" ${a.aggMode==='sum'?'selected':''}>sum</option>
+              <option value="min" ${a.aggMode==='min'?'selected':''}>min</option>
+              <option value="max" ${a.aggMode==='max'?'selected':''}>max</option>
+              <option value="avg" ${a.aggMode==='avg'?'selected':''}>avg</option>
+            </select>
           </div>
         </div>`;
     } else if(a.type==='organize_node'){
@@ -2351,11 +2399,17 @@ function buildXML(){
       const attrs = [`save_results="${xmlEscAttr(a.filename)}"`];
       if(a.nodesAll) attrs.push(`nodes="all"`);
       if(a.packagesAll) attrs.push(`packages="all"`);
+      // "all nuclides, broken down individually" MUST be the attribute nuclides="all", not a
+      // <nuclides>all</nuclides> child — the parser treats those completely differently. The
+      // child-element form splits its text into a list, so "all" would be parsed as ["all"] and
+      // looked up as if it were an actual nuclide name, which is not what anyone wants here.
+      if(a.nuclideMode==='all') attrs.push(`nuclides="all"`);
+      if(a.aggMode && a.aggMode!=='sum') attrs.push(`mode="${xmlEscAttr(a.aggMode)}"`);
       lines.push(`    <action ${attrs.join(' ')}>`);
       if(!a.nodesAll && a.nodes) lines.push(`      <nodes>${xmlEscAttr(a.nodes)}</nodes>`);
       if(!a.packagesAll && a.packages) lines.push(`      <packages>${xmlEscAttr(a.packages)}</packages>`);
       if(a.variables) lines.push(`      <variables>${xmlEscAttr(a.variables)}</variables>`);
-      if(a.nuclides) lines.push(`      <nuclides>${xmlEscAttr(normalizeWhitespaceList(a.nuclides))}</nuclides>`);
+      if(a.nuclideMode==='specific' && a.nuclides.trim()) lines.push(`      <nuclides>${xmlEscAttr(normalizeWhitespaceList(a.nuclides))}</nuclides>`);
       if(a.times) lines.push(`      <times>${xmlEscAttr(a.times)}</times>`);
       lines.push('    </action>');
     } else if(a.type==='organize_node'){
@@ -2539,11 +2593,14 @@ function importModelXML(xmlText){
       } else if(ae.hasAttribute('save_results')){
         const nodesAll = ae.getAttribute('nodes')==='all';
         const packagesAll = ae.getAttribute('packages')==='all';
+        const hasNuclidesChild = ae.querySelector('nuclides') !== null;
+        const nuclideMode = ae.getAttribute('nuclides')==='all' ? 'all' : (hasNuclidesChild ? 'specific' : 'total');
         newActions.push({
           id:nid(), type:'save_results', filename: ae.getAttribute('save_results'),
           nodesAll, nodes: nodesAll ? '' : childText(ae,'nodes'),
           packagesAll, packages: packagesAll ? '' : childText(ae,'packages'),
-          variables: childText(ae,'variables'), nuclides: childText(ae,'nuclides'), times: childText(ae,'times')
+          variables: childText(ae,'variables'), nuclides: hasNuclidesChild ? childText(ae,'nuclides') : '',
+          nuclideMode, aggMode: ae.getAttribute('mode') || 'sum', times: childText(ae,'times')
         });
       } else if(ae.hasAttribute('organize_node')){
         const sizeMatch = (ae.getAttribute('size')||'').replace(/[()]/g,'').split(',').map(s=>parseInt(s.trim())||0);
