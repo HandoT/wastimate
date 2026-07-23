@@ -1339,6 +1339,20 @@ function multiOptionList(values, selectedArr){
   selectedArr = selectedArr||[];
   return values.map(v=>`<option value="${esc(v)}" ${selectedArr.includes(v)?'selected':''}>${esc(v)}</option>`).join('');
 }
+function nodeLabelById(id){
+  const n = nodes.find(x=>x.id===id);
+  return n ? n.label : '';
+}
+// Node references (order homenode/remaindernode/sortNode/ordernodes, source awaynode) are stored
+// as node IDs internally, not labels -- so renaming a node never has to touch them at all. Labels
+// only matter at the XML boundary (buildXML/importModelXML), which is what these are for.
+function nodeIdOptionList(currentId){
+  return nodes.map(n=>`<option value="${n.id}" ${n.id===currentId?'selected':''}>${esc(n.label)}</option>`).join('');
+}
+function nodeIdMultiOptionList(currentIds){
+  const set = new Set(currentIds||[]);
+  return nodes.map(n=>`<option value="${n.id}" ${set.has(n.id)?'selected':''}>${esc(n.label)}</option>`).join('');
+}
 
 /* ===================== nuclide normalization ===================== */
 // Accepts 60Co, Co-60, co-60, co60, Co60, 60-Co, Tc-99m, tc99m ... -> canonical SymbolMassNumber[m]
@@ -1601,7 +1615,7 @@ function packageCardHtml(p, loc){
     <div class="entry-card" id="pkgcard-${loc}-${p.id}">
       <button class="remove" onclick="removePackage('${p.id}')">&times;</button>
       <div class="field-grid">
-        <div class="field"><label>Label</label><input type="text" id="pkg-label-${loc}-${p.id}" value="${esc(p.label)}" oninput="updatePkgSilent('${p.id}','label',this.value,'${loc}')" onblur="updatePkg('${p.id}','label',this.value)"></div>
+        <div class="field"><label>Label</label><input type="text" id="pkg-label-${loc}-${p.id}" value="${esc(p.label)}" onfocus="rememberLabelBeforeEdit('package','${p.id}',this.value)" oninput="updatePkgSilent('${p.id}','label',this.value,'${loc}')" onblur="updatePkg('${p.id}','label',this.value)"></div>
         <div class="field"><label>Mass ${help('Total package mass. Required for activity_concentration mode, and for any activity_concentration/heat_concentration criteria that reference this package.')}</label><input type="number" step="any" value="${esc(p.mass)}" oninput="updatePkg('${p.id}','mass',this.value)"></div>
         <div class="field"><label>Volume ${help('Total package volume. Needed for heat_concentration criteria and volume-based reporting.')}</label><input type="number" step="any" value="${esc(p.volume)}" oninput="updatePkg('${p.id}','volume',this.value)"></div>
         <div class="field"><label>Mode ${help('How to interpret the nuclide values below: atoms = raw atom counts, activity = Bq, activity_concentration = Bq per unit mass (must match the Mass unit).')}</label>
@@ -1669,14 +1683,37 @@ function addPackage(){
   renderNodes(); renderSources(); renderOrders();
   buildXML();
 }
+function cascadePackageRename(oldLabel, newLabel){
+  if(!oldLabel || oldLabel === newLabel) return;
+  nodes.forEach(n=>{
+    if(!Array.isArray(n.contents)) return;
+    n.contents = n.contents.map(tok=>{
+      const [lbl, mult] = String(tok).split('*');
+      if(lbl === oldLabel) return mult ? `${newLabel}*${mult}` : newLabel;
+      return tok;
+    });
+  });
+  sources.forEach(s=>{
+    if(s.package === oldLabel) s.package = newLabel;
+  });
+}
 function updatePkg(id,key,val){
-  const p=packages.find(x=>x.id===id); p[key]=val;
-  if(key==='label'){ renderNodes(); renderSources(); renderOrders(); }
+  const p=packages.find(x=>x.id===id); if(!p) return;
+  if(key==='label'){
+    const oldLabel = takeLabelBeforeEdit('package', id, p.label);
+    const uniqueVal = makeLabelUnique(val, id, packages);
+    p.label = uniqueVal;
+    cascadePackageRename(oldLabel, uniqueVal);
+    renderNodes(); renderSources(); renderOrders();
+  } else {
+    p[key]=val;
+  }
   if(key==='packageDate' || key==='showAdvanced' || key==='mode'){ renderPackages(); return; }
   buildXML();
 }
 function updatePkgSilent(id,key,val,sourceLoc){
-  const p=packages.find(x=>x.id===id); if(p) p[key]=val;
+  const p=packages.find(x=>x.id===id); if(!p) return;
+  p[key]=val; // live field update only -- cascade + uniqueness happen once, on blur (see updateNodeSilent)
   if(sourceLoc && key==='label'){
     const otherLoc = sourceLoc==='form' ? 'net' : 'form';
     const otherEl = document.getElementById(`pkg-label-${otherLoc}-${id}`);
@@ -1819,7 +1856,7 @@ function nodeCardHtml(n){
     <div class="entry-card" id="nodecard-${n.id}">
       <button class="remove" onclick="removeNode('${n.id}')">&times;</button>
       <div class="field-grid">
-        <div class="field"><label>Label</label><input type="text" value="${esc(n.label)}" oninput="updateNodeSilent('${n.id}','label',this.value)" onblur="updateNode('${n.id}','label',this.value)"></div>
+        <div class="field"><label>Label</label><input type="text" value="${esc(n.label)}" onfocus="rememberLabelBeforeEdit('node','${n.id}',this.value)" oninput="updateNodeSilent('${n.id}','label',this.value)" onblur="updateNode('${n.id}','label',this.value)"></div>
         <div class="field span-full"><label>Initial contents (package labels, optionally label*N &mdash; drag corner to resize) ${help('Which packages start out in this node when the simulation begins. Use label*N to add N copies of the same package at once.')}</label>
           <textarea class="resize-v" rows="2" placeholder="e.g. Package1 Package2*3"
             oninput="updateNode('${n.id}','contents',this.value.split(/\\s+/).filter(Boolean))"
@@ -1839,32 +1876,93 @@ function renderNodes(){
   renderSources(); renderOrders(); renderActions();
   buildXML();
 }
-function updateNode(id,key,val){ const n=nodes.find(x=>x.id===id); n[key]=val; if(key==='label'){renderSources();renderOrders();renderActions();} buildXML(); }
-function updateNodeSilent(id,key,val){ const n=nodes.find(x=>x.id===id); if(n) n[key]=val; buildXML(); }
-function deleteOrdersReferencingNode(nodeLabel){
+let labelBeforeEdit = {}; // key: `${type}-${id}` -> the label at the moment editing began (before any keystrokes)
+function rememberLabelBeforeEdit(type, id, val){
+  labelBeforeEdit[`${type}-${id}`] = val;
+}
+function takeLabelBeforeEdit(type, id, fallback){
+  const key = `${type}-${id}`;
+  const val = key in labelBeforeEdit ? labelBeforeEdit[key] : fallback;
+  delete labelBeforeEdit[key];
+  return val;
+}
+function makeLabelUnique(label, excludeId, collection){
+  if(!label) return label;
+  const existing = new Set(collection.filter(x=>x.id!==excludeId).map(x=>x.label));
+  if(!existing.has(label)) return label;
+  let n = 2;
+  while(existing.has(`${label} (${n})`)) n++;
+  return `${label} (${n})`;
+}
+function cascadeNodeRename(oldLabel, newLabel){
+  if(!oldLabel || oldLabel === newLabel) return;
+  // Order/source connections to a node are stored as node IDs now, not labels, so renaming a node
+  // never breaks those -- nothing to cascade there anymore. organize_node/organize_packages/
+  // save_results actions still reference a node by label though, so those still need it.
+  actions.forEach(a=>{
+    if((a.type==='organize_node' || a.type==='organize_packages') && a.node === oldLabel) a.node = newLabel;
+    if(a.type==='save_results' && a.nodes){
+      a.nodes = a.nodes.split(/\s+/).filter(Boolean).map(l => l === oldLabel ? newLabel : l).join(' ');
+    }
+  });
+}
+function updateNode(id,key,val){
+  const n=nodes.find(x=>x.id===id);
+  if(!n) return;
+  if(key==='label'){
+    const oldLabel = takeLabelBeforeEdit('node', id, n.label);
+    const uniqueVal = makeLabelUnique(val, id, nodes);
+    n.label = uniqueVal;
+    cascadeNodeRename(oldLabel, uniqueVal);
+    renderSources(); renderOrders(); renderActions();
+  } else {
+    n[key]=val;
+  }
+  buildXML();
+}
+function updateNodeSilent(id,key,val){
+  const n=nodes.find(x=>x.id===id);
+  if(!n) return;
+  // Deliberately NOT cascading or de-duplicating here: while actively typing, two nodes can
+  // briefly share a label (e.g. typing "Node1" over "Node2" passes through intermediate states),
+  // and since orders/sources are looked up by label, cascading through a transient collision could
+  // silently reconnect something to the wrong node. Just update the field so the node's own box
+  // shows live text; the real cascade + uniqueness check happens once, on blur, against the final value.
+  n[key]=val;
+  buildXML();
+}
+function deleteOrdersReferencingNode(nodeId){
   let deletedAnySelected = false;
   orders = orders.filter(o => {
-    if(o.homenode === nodeLabel){
+    if(o.homenode === nodeId){
       if(networkSelection && networkSelection.type==='order' && networkSelection.id===o.id) deletedAnySelected = true;
       return false; // an order can't function without its home node -- delete it entirely
     }
-    if(o.ordernodes && o.ordernodes.includes(nodeLabel)){
-      o.ordernodes = o.ordernodes.filter(n => n !== nodeLabel);
+    if(o.ordernodes && o.ordernodes.includes(nodeId)){
+      o.ordernodes = o.ordernodes.filter(n => n !== nodeId);
       if(o.ordernodes.length === 0){
         if(networkSelection && networkSelection.type==='order' && networkSelection.id===o.id) deletedAnySelected = true;
         return false; // that was the only source node -- nothing left for this order to pull from
       }
     }
     // the node might still be referenced as an optional target -- clear those, but keep the order
-    if(o.remaindernode === nodeLabel) o.remaindernode = '';
-    if(o.sortNode === nodeLabel) o.sortNode = '';
+    if(o.remaindernode === nodeId) o.remaindernode = '';
+    if(o.sortNode === nodeId) o.sortNode = '';
+    return true;
+  });
+  // a source aimed at the deleted node has nowhere left to deposit packages
+  sources = sources.filter(s => {
+    if(s.awaynode === nodeId){
+      if(networkSelection && networkSelection.type==='source' && networkSelection.id===s.id) deletedAnySelected = true;
+      return false;
+    }
     return true;
   });
   if(deletedAnySelected) networkSelection = null;
 }
 function removeNode(id){
   const n = nodes.find(x=>x.id===id);
-  if(n && n.label) deleteOrdersReferencingNode(n.label);
+  if(n) deleteOrdersReferencingNode(n.id);
   nodes = nodes.filter(n=>n.id!==id);
   if(networkSelection && networkSelection.type==='node' && networkSelection.id===id) networkSelection=null;
   renderNodes();
@@ -1883,8 +1981,8 @@ function sourceCardHtml(s){
         Enabled ${help('Unchecking this keeps the source defined but excludes it from the simulation entirely — the same as not creating it, without deleting it.')}
       </label>
       <div class="field-grid">
-        <div class="field"><label>Label</label><input type="text" value="${esc(s.label)}" oninput="updateSrc('${s.id}','label',this.value)"></div>
-        <div class="field"><label>Away node ${help('Which node this source deposits new packages into.')}</label><select onchange="updateSrc('${s.id}','awaynode',this.value)"><option value=""></option>${optionList(nodeLabels(), s.awaynode)}</select></div>
+        <div class="field"><label>Label</label><input type="text" value="${esc(s.label)}" onfocus="rememberLabelBeforeEdit('source','${s.id}',this.value)" oninput="updateSrcSilent('${s.id}','label',this.value)" onblur="updateSrc('${s.id}','label',this.value)"></div>
+        <div class="field"><label>Away node ${help('Which node this source deposits new packages into.')}</label><select onchange="updateSrc('${s.id}','awaynode',this.value)"><option value=""></option>${nodeIdOptionList(s.awaynode)}</select></div>
         <div class="field"><label>Package ${help('The package template that gets copied into the away node each time this source fires.')}</label><select onchange="updateSrc('${s.id}','package',this.value)"><option value=""></option>${optionList(packageLabels(), s.package)}</select></div>
         <div class="field"><label>Magnitude ${help('How many copies of the package are added each time this source fires.')}</label><input type="number" step="any" value="${esc(s.magnitude)}" oninput="updateSrc('${s.id}','magnitude',this.value)"></div>
         <div class="field"><label>Rate (steps) ${help('How many simulation steps between firings. 0 = fires every step.')}</label><input type="number" value="${esc(s.rate)}" oninput="updateSrc('${s.id}','rate',this.value)"></div>
@@ -1894,7 +1992,27 @@ function sourceCardHtml(s){
 function renderSources(){
   buildXML();
 }
-function updateSrc(id,key,val){ sources.find(s=>s.id===id)[key]=val; buildXML(); }
+function updateSrc(id,key,val){
+  const s=sources.find(x=>x.id===id); if(!s) return;
+  if(key==='label'){
+    const oldLabel = takeLabelBeforeEdit('source', id, s.label);
+    const uniqueVal = makeLabelUnique(val, id, sources);
+    s.label = uniqueVal;
+    if(oldLabel && oldLabel !== uniqueVal){
+      actions.forEach(a=>{
+        if((a.type==='add_source' || a.type==='remove_source') && a.sourceLabel === oldLabel) a.sourceLabel = uniqueVal;
+      });
+    }
+  } else {
+    s[key]=val;
+  }
+  buildXML();
+}
+function updateSrcSilent(id,key,val){
+  const s=sources.find(x=>x.id===id); if(!s) return;
+  s[key]=val; // live field update only -- cascade + uniqueness happen once, on blur
+  buildXML();
+}
 function removeSource(id){ sources = sources.filter(s=>s.id!==id); if(networkSelection && networkSelection.type==='source' && networkSelection.id===id) networkSelection=null; renderSources(); if(typeof renderNetworkDiagram==='function') renderNetworkDiagram(); if(typeof renderNetworkInspector==='function') renderNetworkInspector(); }
 
 /* ===================== ORDERS ===================== */
@@ -2001,14 +2119,14 @@ function orderCardHtml(o){
         Enabled ${help('Unchecking this keeps the order defined but excludes it from the simulation entirely — the same as not creating it, without deleting it.')}
       </label>
       <div class="field-grid">
-        <div class="field"><label>Label</label><input type="text" value="${esc(o.label)}" oninput="updateOrdSilent('${o.id}','label',this.value)" onblur="updateOrd('${o.id}','label',this.value)"></div>
+        <div class="field"><label>Label</label><input type="text" value="${esc(o.label)}" onfocus="rememberLabelBeforeEdit('order','${o.id}',this.value)" oninput="updateOrdSilent('${o.id}','label',this.value)" onblur="updateOrd('${o.id}','label',this.value)"></div>
         <div class="field"><label>Mode ${help('transfer = move packages, combine = merge several into one, separate = split off part of a package, sort = reorder within a node, batch = group into fixed-size batches.')}</label>
           <select onchange="updateOrd('${o.id}','mode',this.value)">
             ${['transfer','combine','separate','sort','batch'].map(m=>`<option value="${m}" ${o.mode===m?'selected':''}>${m}</option>`).join('')}
           </select>
         </div>
-        <div class="field"><label>Home node ${help('The destination node packages get moved to.')}</label><select onchange="updateOrd('${o.id}','homenode',this.value)"><option value=""></option>${optionList(nodeLabels(), o.homenode)}</select></div>
-        <div class="field span2"><label>Order nodes (source pool) ${help('The node(s) this order searches for eligible packages in.')}</label><select multiple onchange="updateOrd('${o.id}','ordernodes',Array.from(this.selectedOptions).map(x=>x.value))">${multiOptionList(nodeLabels(), o.ordernodes)}</select></div>
+        <div class="field"><label>Home node ${help('The destination node packages get moved to.')}</label><select onchange="updateOrd('${o.id}','homenode',this.value)"><option value=""></option>${nodeIdOptionList(o.homenode)}</select></div>
+        <div class="field span2"><label>Order nodes (source pool) ${help('The node(s) this order searches for eligible packages in.')}</label><select multiple onchange="updateOrd('${o.id}','ordernodes',Array.from(this.selectedOptions).map(x=>x.value))">${nodeIdMultiOptionList(o.ordernodes)}</select></div>
         <div class="field"><label>Magnitude</label><input type="number" step="any" value="${esc(o.magnitude)}" oninput="updateOrdSilent('${o.id}','magnitude',this.value)" onblur="updateOrd('${o.id}','magnitude',this.value)"><span class="hint">packages moved per timestep</span></div>
       </div>
 
@@ -2018,7 +2136,7 @@ function orderCardHtml(o){
       </label>
       ${o.showAdvanced ? `
       <div class="field-grid" style="margin-top:10px;">
-        <div class="field"><label>Remainder node ${help('Where packages considered but rejected by the criteria below get put instead, if set.')}</label><select onchange="updateOrd('${o.id}','remaindernode',this.value)"><option value=""></option>${optionList(nodeLabels(), o.remaindernode)}</select></div>
+        <div class="field"><label>Remainder node ${help('Where packages considered but rejected by the criteria below get put instead, if set.')}</label><select onchange="updateOrd('${o.id}','remaindernode',this.value)"><option value=""></option>${nodeIdOptionList(o.remaindernode)}</select></div>
         <div class="field"><label>Direction ${help('For transfer/combine — whether to prefer the oldest packages, newest, a mix, or all of them when picking which to move.')}</label>
           <select onchange="updateOrd('${o.id}','direction',this.value)">
             ${['old','new','mix','all'].map(m=>`<option value="${m}" ${o.direction===m?'selected':''}>${m}</option>`).join('')}
@@ -2047,7 +2165,7 @@ function orderCardHtml(o){
         <div class="subblock">
           <div class="subblock-title">Sort instruction</div>
           <div class="field-grid">
-            <div class="field"><label>Sort node (remainder target) ${help('Where packages that fail the sort criteria end up.')}</label><select onchange="updateOrd('${o.id}','sortNode',this.value)"><option value=""></option>${optionList(nodeLabels(), o.sortNode)}</select></div>
+            <div class="field"><label>Sort node (remainder target) ${help('Where packages that fail the sort criteria end up.')}</label><select onchange="updateOrd('${o.id}','sortNode',this.value)"><option value=""></option>${nodeIdOptionList(o.sortNode)}</select></div>
           </div>
         </div>` : ''}
 
@@ -2135,8 +2253,27 @@ function orderCardHtml(o){
 function renderOrders(){
   buildXML();
 }
-function updateOrd(id,key,val){ orders.find(o=>o.id===id)[key]=val; renderOrders(); }
-function updateOrdSilent(id,key,val){ const o=orders.find(x=>x.id===id); if(o) o[key]=val; buildXML(); }
+function updateOrd(id,key,val){
+  const o=orders.find(x=>x.id===id); if(!o) return;
+  if(key==='label'){
+    const oldLabel = takeLabelBeforeEdit('order', id, o.label);
+    const uniqueVal = makeLabelUnique(val, id, orders);
+    o.label = uniqueVal;
+    if(oldLabel && oldLabel !== uniqueVal){
+      actions.forEach(a=>{
+        if((a.type==='add_order' || a.type==='remove_order') && a.orderLabel === oldLabel) a.orderLabel = uniqueVal;
+      });
+    }
+  } else {
+    o[key]=val;
+  }
+  renderOrders();
+}
+function updateOrdSilent(id,key,val){
+  const o=orders.find(x=>x.id===id); if(!o) return;
+  o[key]=val; // live field update only -- cascade + uniqueness happen once, on blur
+  buildXML();
+}
 function removeOrder(id){ orders = orders.filter(o=>o.id!==id); if(networkSelection && networkSelection.type==='order' && networkSelection.id===id) networkSelection=null; renderOrders(); if(typeof renderNetworkDiagram==='function') renderNetworkDiagram(); if(typeof renderNetworkInspector==='function') renderNetworkInspector(); }
 function updateCriterionSilent(oid,ci,key,val){ orders.find(o=>o.id===oid).criteria[ci][key]=val; buildXML(); }
 
@@ -2638,7 +2775,7 @@ function buildXML(){
   if(sources.length){
     lines.push('  <sources>');
     sources.forEach(s=>{
-      lines.push(`    <source label="${xmlEscAttr(s.label)}" awaynode="${xmlEscAttr(s.awaynode)}" package="${xmlEscAttr(s.package)}" magnitude="${xmlEscAttr(s.magnitude)}" rate="${xmlEscAttr(s.rate)}"/>`);
+      lines.push(`    <source label="${xmlEscAttr(s.label)}" awaynode="${xmlEscAttr(nodeLabelById(s.awaynode))}" package="${xmlEscAttr(s.package)}" magnitude="${xmlEscAttr(s.magnitude)}" rate="${xmlEscAttr(s.rate)}"/>`);
     });
     lines.push('  </sources>');
   }
@@ -2647,12 +2784,12 @@ function buildXML(){
   if(orders.length){
     lines.push('  <orders>');
     orders.forEach(o=>{
-      const attrs = [`label="${xmlEscAttr(o.label)}"`, `homenode="${xmlEscAttr(o.homenode)}"`, `mode="${xmlEscAttr(o.mode)}"`,
+      const attrs = [`label="${xmlEscAttr(o.label)}"`, `homenode="${xmlEscAttr(nodeLabelById(o.homenode))}"`, `mode="${xmlEscAttr(o.mode)}"`,
         `magnitude="${xmlEscAttr(o.magnitude)}"`, `direction="${xmlEscAttr(o.direction)}"`, `mixratio="${xmlEscAttr(o.mixratio)}"`,
         `crumbs="${o.crumbs?'True':'False'}"`, `rate="${xmlEscAttr(o.rate)}"`];
-      if(o.remaindernode) attrs.push(`remaindernode="${xmlEscAttr(o.remaindernode)}"`);
+      if(o.remaindernode) attrs.push(`remaindernode="${xmlEscAttr(nodeLabelById(o.remaindernode))}"`);
       lines.push(`    <order ${attrs.join(' ')}>`);
-      lines.push(`      <ordernodes>${xmlEscAttr((o.ordernodes||[]).join(' '))}</ordernodes>`);
+      lines.push(`      <ordernodes>${xmlEscAttr((o.ordernodes||[]).map(nodeLabelById).join(' '))}</ordernodes>`);
       (o.criteria||[]).forEach(c=>{
         const cAttrs = [`region="${xmlEscAttr(c.region)}"`, `variable="${xmlEscAttr(c.variable)}"`, `principle="${xmlEscAttr(c.principle)}"`];
         if(c.value!=='') cAttrs.push(`criteria="${xmlEscAttr(c.value)}"`);
@@ -2689,7 +2826,7 @@ function buildXML(){
       }
       if(o.mode==='separate' && o.packageMass!=='') lines.push(`      <instruction package_mass="${xmlEscAttr(o.packageMass)}"/>`);
       if((o.mode==='combine'||o.mode==='batch') && o.packageOut!=='') lines.push(`      <instruction package_out="${xmlEscAttr(o.packageOut)}"/>`);
-      if(o.mode==='sort' && o.sortNode) lines.push(`      <instruction sort_node="${xmlEscAttr(o.sortNode)}"/>`);
+      if(o.mode==='sort' && o.sortNode) lines.push(`      <instruction sort_node="${xmlEscAttr(nodeLabelById(o.sortNode))}"/>`);
       lines.push('    </order>');
     });
     lines.push('  </orders>');
@@ -2879,10 +3016,16 @@ function importModelXML(xmlText){
     }, defaultNodePosition(ni)));
   });
 
+  // build a label -> id lookup for the just-parsed nodes, used to convert order/source node
+  // references (stored as labels in the XML, same as the actual simulator format) into the
+  // internal node IDs orders/sources use for connectivity
+  const nodeIdByLabelImport = {};
+  newNodes.forEach(n => { if(n.label) nodeIdByLabelImport[n.label] = n.id; });
+
   // sources
   root.querySelectorAll(':scope > sources > source').forEach(se=>{
     newSources.push({
-      id:nid(), label: se.getAttribute('label')||'', awaynode: se.getAttribute('awaynode')||'',
+      id:nid(), label: se.getAttribute('label')||'', awaynode: nodeIdByLabelImport[se.getAttribute('awaynode')] || '',
       package: se.getAttribute('package')||'', magnitude: se.getAttribute('magnitude')||1, rate: se.getAttribute('rate')||0,
       disabled:false
     });
@@ -2895,8 +3038,9 @@ function importModelXML(xmlText){
     const ordernodesText = childText(oe, 'ordernodes');
     const instrEl = oe.querySelector('instruction');
     const order = {
-      id:nid(), label: oe.getAttribute('label')||'', homenode: oe.getAttribute('homenode')||'',
-      remaindernode: oe.getAttribute('remaindernode')||'', ordernodes: ordernodesText ? ordernodesText.split(/\s+/).filter(Boolean) : [],
+      id:nid(), label: oe.getAttribute('label')||'', homenode: nodeIdByLabelImport[oe.getAttribute('homenode')] || '',
+      remaindernode: nodeIdByLabelImport[oe.getAttribute('remaindernode')] || '',
+      ordernodes: ordernodesText ? ordernodesText.split(/\s+/).filter(Boolean).map(lbl => nodeIdByLabelImport[lbl]).filter(Boolean) : [],
       mode: oe.getAttribute('mode')||'transfer', magnitude: oe.getAttribute('magnitude')||1,
       direction: oe.getAttribute('direction')||'old', mixratio: oe.getAttribute('mixratio')||0.5,
       crumbs: (oe.getAttribute('crumbs')||'False').toLowerCase()==='true',
@@ -2906,7 +3050,7 @@ function importModelXML(xmlText){
     if(instrEl){
       if(instrEl.hasAttribute('package_mass')) order.packageMass = instrEl.getAttribute('package_mass');
       if(instrEl.hasAttribute('package_out')) order.packageOut = instrEl.getAttribute('package_out');
-      if(instrEl.hasAttribute('sort_node')) order.sortNode = instrEl.getAttribute('sort_node');
+      if(instrEl.hasAttribute('sort_node')) order.sortNode = nodeIdByLabelImport[instrEl.getAttribute('sort_node')] || '';
     }
     newOrders.push(order);
   });
@@ -3301,22 +3445,22 @@ function renderNetworkDiagram(){
 
   // order edges: ordernodes (source pool) -> homenode (destination)
   orders.forEach(o=>{
-    const homeBox = pos[nodeIdByLabel(o.homenode)];
+    const homeBox = pos[o.homenode];
     if(!homeBox) return;
     const isSel = sel && sel.type==='order' && sel.id===o.id;
     const orderColor = o.disabled ? cTextFaint : cAmber;
     (o.ordernodes||[]).forEach(onlbl=>{
-      const fromBox = pos[nodeIdByLabel(onlbl)];
+      const fromBox = pos[onlbl];
       if(!fromBox || fromBox===homeBox) return;
       const p1 = rectEdgePoint(fromBox, homeBox.x+homeBox.w/2, homeBox.y+homeBox.h/2);
       const p2 = rectEdgePoint(homeBox, fromBox.x+fromBox.w/2, fromBox.y+fromBox.h/2);
       svg += `<line class="order-hit" data-order-id="${o.id}" x1="${p1.x.toFixed(1)}" y1="${p1.y.toFixed(1)}" x2="${p2.x.toFixed(1)}" y2="${p2.y.toFixed(1)}" stroke="${orderColor}" stroke-width="${isSel?4:2}" ${o.disabled?'stroke-dasharray="2,3"':''} marker-end="url(#arrow-order)" opacity="${o.disabled?0.6:1}"><title>${esc(o.label)}${o.disabled?' (disabled — excluded from the simulation)':''} [${esc(o.mode)}]\nmagnitude ${esc(o.magnitude)}, direction ${esc(o.direction)}\ncriteria: ${esc(orderCriteriaSummary(o))}</title></line>`;
     });
     if(o.remaindernode){
-      const remBox = pos[nodeIdByLabel(o.remaindernode)];
+      const remBox = pos[o.remaindernode];
       if(remBox){
         (o.ordernodes||[]).forEach(onlbl=>{
-          const fromBox = pos[nodeIdByLabel(onlbl)];
+          const fromBox = pos[onlbl];
           if(!fromBox || fromBox===remBox) return;
           const p1 = rectEdgePoint(fromBox, remBox.x+remBox.w/2, remBox.y+remBox.h/2);
           const p2 = rectEdgePoint(remBox, fromBox.x+fromBox.w/2, fromBox.y+fromBox.h/2);
@@ -3328,12 +3472,12 @@ function renderNetworkDiagram(){
 
   // order labels + criteria chips on every ordernode -> home edge (not just the first)
   orders.forEach(o=>{
-    const homeBox = pos[nodeIdByLabel(o.homenode)];
+    const homeBox = pos[o.homenode];
     if(!homeBox) return;
     const isSel = sel && sel.type==='order' && sel.id===o.id;
     const orderColor = o.disabled ? cTextFaint : cAmber;
     (o.ordernodes||[]).forEach(onlbl=>{
-      const fromBox = pos[nodeIdByLabel(onlbl)];
+      const fromBox = pos[onlbl];
       if(!fromBox || fromBox===homeBox) return;
       const mx = ((homeBox.x+homeBox.w/2) + (fromBox.x+fromBox.w/2))/2;
       const my = ((homeBox.y+homeBox.h/2) + (fromBox.y+fromBox.h/2))/2;
@@ -3354,7 +3498,7 @@ function renderNetworkDiagram(){
   const sourcesByNode = {};
   sources.forEach(s=>{ (sourcesByNode[s.awaynode] = sourcesByNode[s.awaynode]||[]).push(s); });
   sources.forEach(s=>{
-    const toBox = pos[nodeIdByLabel(s.awaynode)];
+    const toBox = pos[s.awaynode];
     if(!toBox) return;
     const isSel = sel && sel.type==='source' && sel.id===s.id;
     const sourceColor = s.disabled ? cTextFaint : cOk;
@@ -3527,7 +3671,7 @@ document.addEventListener('pointermove', e=>{
     const s = sources.find(x=>x.id===networkDrag.sourceId);
     if(!s) return;
     if(Math.abs(e.clientX-networkDrag.startClientX)>moveThreshold || Math.abs(e.clientY-networkDrag.startClientY)>moveThreshold) networkDrag.moved = true;
-    const npos = nodeCurrentPos(nodeIdByLabel(s.awaynode));
+    const npos = nodeCurrentPos(s.awaynode);
     if(npos){
       s.sdx = pt.x - npos.x;
       s.sdy = pt.y - npos.y;
@@ -3673,7 +3817,7 @@ function createOrderBetween(fromNodeId, toNodeId){
   const fromNode = nodes.find(n=>n.id===fromNodeId);
   const toNode = nodes.find(n=>n.id===toNodeId);
   if(!fromNode || !toNode) return;
-  const o = {id:nid(), label:'Order'+(orders.length+1), homenode:toNode.label, remaindernode:'', ordernodes:[fromNode.label],
+  const o = {id:nid(), label:'Order'+(orders.length+1), homenode:toNode.id, remaindernode:'', ordernodes:[fromNode.id],
     mode:'transfer', magnitude:1, direction:'old', mixratio:0.5, crumbs:false, rate:0, showAdvanced:false, disabled:false,
     criteria:[], conditions:[], packageOut:'', packageMass:'', sortNode:''};
   orders.push(o);
@@ -3748,7 +3892,7 @@ function networkAddSourceToSelected(){
 function networkAddSourceTo(nodeId){
   const n = nodes.find(x=>x.id===nodeId);
   if(!n) return;
-  sources.push({id:nid(), label:'Source'+(sources.length+1), awaynode:n.label, package:'', magnitude:1, rate:0, disabled:false});
+  sources.push({id:nid(), label:'Source'+(sources.length+1), awaynode:n.id, package:'', magnitude:1, rate:0, disabled:false});
   selectNetworkElement('source', sources[sources.length-1].id);
   renderSources(); // cascades to buildXML -> renderNetworkDiagram
 }
