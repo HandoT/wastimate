@@ -141,6 +141,73 @@
     background:var(--panel-alt);border:1px solid var(--border-soft);border-radius:var(--radius);
     padding:14px;margin-bottom:10px;position:relative;
   }
+  .entry-card.is-disabled{opacity:0.55;}
+  .entry-card.is-disabled::before{
+    content:'disabled'; position:absolute; top:10px; left:14px; font-family:var(--mono); font-size:9.5px;
+    letter-spacing:.05em; text-transform:uppercase; color:var(--text-faint); pointer-events:none;
+  }
+  .action-timeline{position:relative;}
+  .action-timeline-item{display:flex;gap:10px;position:relative;}
+  .action-timeline-marker{display:flex;flex-direction:column;align-items:center;flex-shrink:0;width:26px;}
+  .action-timeline-dot{
+    width:23px;height:23px;border-radius:50%;background:var(--panel);border:2px solid var(--amber);
+    display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;font-weight:600;
+    color:var(--amber);flex-shrink:0;z-index:1;
+  }
+  .action-timeline-marker::after{
+    content:'';flex:1;width:2px;background:var(--border-soft);margin:3px 0;min-height:8px;
+  }
+  .action-timeline-content{flex:1;padding-bottom:2px;min-width:0;}
+  .action-timeline-content .entry-card{margin-bottom:0;margin-top:8px;}
+  .action-drag-handle{
+    cursor:grab;color:var(--text-faint);font-size:13px;line-height:1;margin-bottom:3px;
+    touch-action:none;user-select:none;letter-spacing:-1px;
+  }
+  .action-drag-handle:hover{color:var(--amber);}
+  .action-drag-handle:active{cursor:grabbing;}
+  .action-timeline-item.dragging{opacity:0.4;}
+  .action-timeline-item.drag-over-top .action-summary-row,
+  .action-timeline-item.drag-over-top .entry-card{box-shadow:0 -3px 0 var(--amber);}
+  .action-timeline-item.drag-over-bottom .action-summary-row,
+  .action-timeline-item.drag-over-bottom .entry-card{box-shadow:0 3px 0 var(--amber);}
+  .action-summary-row{
+    display:flex;align-items:center;gap:10px;cursor:pointer;padding:8px 10px;
+    background:var(--panel-alt);border:1px solid var(--border-soft);border-radius:var(--radius);
+  }
+  .action-summary-row:hover{border-color:var(--amber);}
+  .action-summary-type{font-family:var(--mono);font-size:11px;font-weight:600;flex-shrink:0;}
+  .action-summary-detail{font-family:var(--mono);font-size:11.5px;color:var(--text-dim);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .action-summary-chevron{font-size:9px;color:var(--text-faint);flex-shrink:0;}
+  .action-summary-remove{background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:15px;line-height:1;padding:2px;flex-shrink:0;}
+  .action-summary-remove:hover{color:var(--danger);}
+  .action-insert-gap{display:flex;align-items:stretch;gap:10px;height:18px;cursor:pointer;position:relative;}
+  .action-insert-gap-marker{display:flex;justify-content:center;flex-shrink:0;width:26px;}
+  .action-insert-gap-marker::after{content:'';width:2px;background:var(--border-soft);}
+  .action-insert-gap .action-insert-plus{align-self:center;}
+  .action-insert-plus{
+    width:16px;height:16px;border-radius:50%;background:var(--panel);border:1.5px dashed var(--text-faint);
+    display:flex;align-items:center;justify-content:center;font-size:10px;line-height:1;color:var(--text-faint);
+    opacity:0;transition:opacity .15s,border-color .15s,color .15s;flex-shrink:0;
+  }
+  .action-insert-gap:hover .action-insert-plus{opacity:1;border-color:var(--amber);color:var(--amber);border-style:solid;}
+  .action-insert-gap.always-visible{height:auto;margin:6px 0 6px 0;}
+  .action-insert-gap.always-visible .action-insert-plus{
+    opacity:0.75;width:auto;height:auto;padding:6px 14px;border-radius:12px;font-size:11px;font-family:var(--mono);border-style:solid;
+  }
+  .action-insert-gap.always-visible:hover .action-insert-plus{opacity:1;}
+  .action-insert-menu{
+    position:fixed;z-index:9999;background:var(--panel-alt);border:1px solid var(--border);border-radius:var(--radius);
+    padding:6px;box-shadow:0 8px 24px rgba(0,0,0,.35);display:flex;flex-direction:column;gap:2px;max-height:70vh;overflow:auto;min-width:170px;
+  }
+  .action-insert-menu button{
+    background:none;border:none;text-align:left;padding:7px 10px;font-family:var(--mono);font-size:11.5px;color:var(--text);
+    cursor:pointer;border-radius:4px;width:100%;
+  }
+  .action-insert-menu button:hover{background:var(--panel);color:var(--amber);}
+  .action-menu-group-toggle{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .action-menu-chevron{font-size:8px;color:var(--text-faint);flex-shrink:0;}
+  .action-menu-group-children{padding-left:14px;border-left:1px solid var(--border-soft);margin:2px 0 2px 12px;display:flex;flex-direction:column;gap:2px;}
+  .action-menu-group-children button{font-size:11px;color:var(--text-dim);}
   .entry-card .remove{
     position:absolute;top:10px;right:10px;background:none;border:none;color:var(--text-faint);
     cursor:pointer;font-size:16px;line-height:1;padding:2px;
@@ -252,7 +319,7 @@
   .subview{display:none;}
   .subview.active{display:block;}
   #network-diagram{overflow:hidden;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--panel);padding:10px;height:520px;min-height:240px;max-height:90vh;resize:vertical;}
-  .network-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(320px,0.85fr);gap:22px;align-items:start;}
+  .network-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(300px,1fr);gap:16px;align-items:start;}
   .network-grid #network-inspector{position:sticky;top:78px;max-height:calc(100vh - 100px);overflow:auto;}
   @media (max-width: 980px){.network-grid{grid-template-columns:1fr;} .network-grid #network-inspector{position:static;max-height:none;}}
   #network-diagram svg text{user-select:none;}
@@ -829,165 +896,102 @@
   <!-- ============ BUILD VIEW ============ -->
   <div class="view active" id="view-build">
     <div class="subtabs">
-      <button class="subtab-btn active" data-bsub="network">Network</button>
-      <button class="subtab-btn" data-bsub="form">Form</button>
+      <button class="subtab-btn active" data-bsub="packages">Packages</button>
+      <button class="subtab-btn" data-bsub="network">Network</button>
+      <button class="subtab-btn" data-bsub="universe">Universe &amp; Actions</button>
+      <button class="subtab-btn" data-bsub="xml">XML</button>
     </div>
 
-    <!-- NETWORK -->
-    <div class="subview active" id="bsub-network">
-      <p class="section-note">The fastest way to sketch out a model. Drag a node to move it. Drag from the small dot on a node's right edge to another node to create an order. Drag a source's green dot to reposition it. Click a node, order, or source to edit it fully on the right &mdash; the same fields as the Form tab. Draw a group box first to frame your working area &mdash; once you've touched a group box or zoomed/panned, the view stops auto-adjusting, so moving nodes around won't cause the jumpy zoom-shift anymore. Drag the diagram's bottom-right corner to resize the panel itself. Orange arrows are orders (source pool &rarr; home node, magnitude shown inline), dashed red arrows are the remainder path for packages that don't meet criteria, green labels are sources (package &times; magnitude).</p>
-      <div class="network-grid">
-        <div>
-          <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;justify-content:space-between;">
-            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-              <button class="add" onclick="networkAddNode()">+ add node</button>
-              <button class="ghost small" onclick="networkAddGroup()">+ group box</button>
-              <button class="ghost small" id="network-add-source-btn" style="display:none;" onclick="networkAddSourceToSelected()">+ add source to selected node</button>
-            </div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-              <button class="ghost small" onclick="networkZoomOut()" title="zoom out">&minus;</button>
-              <button class="ghost small" onclick="networkZoomIn()" title="zoom in">+</button>
-              <button class="ghost small" onclick="networkZoomReset()" title="reset zoom/pan to fit everything">reset view</button>
-            </div>
-          </div>
-          <div id="network-diagram"></div>
-          <div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end;flex-wrap:wrap;">
-            <button class="ghost small" onclick="downloadNetworkSVG()">download graph as SVG</button>
-            <button class="ghost small" onclick="downloadNetworkPNG()">download graph as PNG</button>
-          </div>
-        </div>
-        <div id="network-inspector" class="subblock"></div>
-      </div>
-    </div>
-
-    <!-- FORM -->
-    <div class="subview" id="bsub-form">
-    <div class="builder-grid">
-      <div>
-
+    <div>
         <!-- PACKAGES -->
-        <div class="section" data-section="packages">
-          <div class="section-head">
-            <div class="section-title"><span class="idx">01</span><h2>Packages</h2><span class="count" id="count-packages">0</span></div>
-            <span class="chevron">&#9660;</span>
+        <div class="subview active" id="bsub-packages">
+          <div class="subblock-title" style="display:flex;align-items:center;gap:6px;">Packages <span class="help-bubble" tabindex="0">?<span class="tip">Each package is an initial nuclide inventory. Mode "atoms" expects raw atom counts; "activity"/"activity_concentration" are converted internally. Nuclide names are auto-reformatted (e.g. 60Co, co60 &rarr; Co60) when you leave the field.</span></span></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+            <button class="add" onclick="addPackage()">+ create package</button>
+            <button class="ghost small" onclick="toggleExcelImportPanel()">import from Excel</button>
           </div>
-          <div class="section-body">
-            <p class="section-note">Each package is an initial nuclide inventory (single batch). Mode "atoms" expects raw atom counts; "activity" / "activity_concentration" are converted internally. Nuclide names are auto-reformatted to the canonical form (e.g. <code>60Co</code>, <code>Co-60</code>, <code>co60</code> &rarr; <code>Co60</code>) as soon as you leave the field.</p>
-            <div id="packages-list" class="rows"></div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <button class="add" onclick="addPackage()">+ add package</button>
-              <button class="ghost small" onclick="copyPackageLabels()" id="copy-pkg-labels-btn">copy all package labels</button>
-            </div>
 
+          <div class="field-grid" id="package-refdate"></div>
+
+          <div id="pkg-excel-panel" style="display:none;">
             <div class="subblock">
-              <div class="subblock-title">Import packages from Excel</div>
+              <div class="subblock-title">Import from Excel <span class="help-bubble" tabindex="0">?<span class="tip">Overrides for radioactive/decay_chain apply to every row before it's added, so you don't have to click through each one.</span></span></div>
               <input type="file" id="pkg-excel-input" accept=".xlsx,.xls">
               <div class="field-grid" style="margin-top:10px;">
-                <div class="field"><label>Override radioactive <span class="help-bubble" tabindex="0">?<span class="tip">Applies to every row before it's added, so you don't have to click through each one.</span></span></label>
+                <div class="field"><label>Override radioactive</label>
                   <select id="pkg-excel-override-radioactive"><option value="">keep as parsed (true)</option><option value="true">force true</option><option value="false">force false</option></select>
                 </div>
-                <div class="field"><label>Override decay_chain <span class="help-bubble" tabindex="0">?<span class="tip">Applies to every row before it's added, so you don't have to click through each one.</span></span></label>
+                <div class="field"><label>Override decay_chain</label>
                   <select id="pkg-excel-override-decay_chain"><option value="">keep as parsed (true)</option><option value="true">force true</option><option value="false">force false</option></select>
                 </div>
               </div>
               <div id="pkg-excel-status" class="empty-hint"></div>
               <div id="pkg-excel-preview"></div>
+              <button class="ghost small" style="margin-top:10px;" onclick="copyPackageLabels(this)">copy all package labels</button>
             </div>
           </div>
+
+          <div id="network-packages-list" class="rows"></div>
         </div>
 
-        <!-- NODES -->
-        <div class="section" data-section="nodes">
-          <div class="section-head">
-            <div class="section-title"><span class="idx">02</span><h2>Nodes</h2><span class="count" id="count-nodes">0</span></div>
-            <span class="chevron">&#9660;</span>
-          </div>
-          <div class="section-body">
-            <p class="section-note">Nodes hold packages. Reference package labels defined above; use <code>label*N</code> to load N copies of one package. Drag the bottom-right corner of the contents box to resize it.</p>
-            <div id="nodes-list" class="rows"></div>
-            <button class="add" onclick="addNode()">+ add node</button>
-          </div>
-        </div>
-
-        <!-- SOURCES -->
-        <div class="section" data-section="sources">
-          <div class="section-head">
-            <div class="section-title"><span class="idx">03</span><h2>Sources</h2><span class="count" id="count-sources">0</span></div>
-            <span class="chevron">&#9660;</span>
-          </div>
-          <div class="section-body">
-            <p class="section-note">Sources periodically introduce new packages into a node.</p>
-            <div id="sources-list" class="rows"></div>
-            <button class="add" onclick="addSource()">+ add source</button>
-          </div>
-        </div>
-
-        <!-- ORDERS -->
-        <div class="section" data-section="orders">
-          <div class="section-head">
-            <div class="section-title"><span class="idx">04</span><h2>Orders</h2><span class="count" id="count-orders">0</span></div>
-            <span class="chevron">&#9660;</span>
-          </div>
-          <div class="section-body">
-            <p class="section-note">Orders move packages between nodes: transfer, combine, separate, sort, or batch. Each criterion has a shared threshold, plus an optional advanced filter set to restrict it to specific nuclides, decay types (e.g. alpha emitters), or half-life bands &mdash; tick the box to reveal those instead of typing raw syntax.</p>
-            <div id="orders-list" class="rows"></div>
-            <button class="add" onclick="addOrder()">+ add order</button>
-          </div>
-        </div>
-
-        <!-- UNIVERSE -->
-        <div class="section" data-section="universe">
-          <div class="section-head">
-            <div class="section-title"><span class="idx">05</span><h2>Universe &amp; actions</h2></div>
-            <span class="chevron">&#9660;</span>
-          </div>
-          <div class="section-body">
-            <div class="field-grid">
-              <div class="field"><label>Step size <span class="help-bubble" tabindex="0">?<span class="tip">How many step units progress_time advances per call, e.g. step_size=2, step_unit=years advances 2 years each time.</span></span></label><input type="number" id="u-stepsize" value="1" step="any"></div>
-              <div class="field"><label>Step unit <span class="help-bubble" tabindex="0">?<span class="tip">The time unit that step size, order rate, and action timeunits are all measured in.</span></span></label>
-                <select id="u-stepunit"><option value="a">years (a)</option><option value="m">months</option><option value="d">days</option><option value="h">hours</option><option value="s">seconds</option></select>
+        <!-- NETWORK -->
+        <div class="subview" id="bsub-network">
+          <p class="empty-hint" style="margin:0 0 10px 0;">Drag nodes, drag the edge dot to connect, click anything to edit. <span class="help-bubble" tabindex="0">?<span class="tip">Drag a source's green dot to reposition it. Draw a group box first to frame your working area — once you've touched a group box or zoomed/panned, the view stops auto-adjusting. Drag the diagram's bottom-right corner to resize the panel. Orange arrows are orders (source pool &rarr; home node, magnitude shown inline), dashed red = remainder path, green labels = sources (package &times; magnitude).</span></span></p>
+          <div class="network-grid">
+            <div>
+              <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;justify-content:space-between;">
+                <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                  <button class="add" onclick="networkAddNode()">+ add node</button>
+                  <button class="ghost small" onclick="networkAddGroup()">+ group box</button>
+                  <button class="ghost small" id="network-add-source-btn" style="display:none;" onclick="networkAddSourceToSelected()">+ add source to selected node</button>
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                  <button class="ghost small" onclick="networkZoomOut()" title="zoom out">&minus;</button>
+                  <button class="ghost small" onclick="networkZoomIn()" title="zoom in">+</button>
+                  <button class="ghost small" onclick="networkZoomReset()" title="reset zoom/pan to fit everything">reset view</button>
+                </div>
               </div>
-              <div class="field"><label>Cores <span class="help-bubble" tabindex="0">?<span class="tip">Number of CPU cores the simulator may use for parallelizable work.</span></span></label><input type="number" id="u-cores" value="1" min="1"></div>
-              <div class="field span2">
-                <label>Simulation reference date (t = 0) <span class="help-bubble" tabindex="0">?<span class="tip">The calendar date that corresponds to t=0 in the simulation. Only needed if you set an &quot;inventory measured on&quot; date on a package.</span></span></label>
-                <input type="datetime-local" id="u-refdate">
-                <span class="hint">Used to convert any package's "inventory measured on" date into the seconds Wastimate needs. Leave blank if you're not using package dates.</span>
+              <div id="network-diagram"></div>
+              <div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end;flex-wrap:wrap;">
+                <button class="ghost small" onclick="downloadNetworkSVG()">download graph as SVG</button>
+                <button class="ghost small" onclick="downloadNetworkPNG()">download graph as PNG</button>
               </div>
             </div>
-            <div class="subblock">
-              <div class="subblock-title">Action sequence</div>
-              <p class="section-note">Actions run in sequence. <code>organize_node</code> and <code>organize_packages</code> cover most parameters; per-nuclide advanced criteria filters and <code>external_file</code> package imports (other than the Excel importer above) still need hand-editing.</p>
-              <div id="actions-list" class="rows"></div>
-              <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
-                <button class="add" onclick="addAction('progress_time')">+ progress_time</button>
-                <button class="add" onclick="addAction('save_results')">+ save_results</button>
-                <button class="add" onclick="addAction('save_state')">+ save_state</button>
-                <button class="add" onclick="addAction('organize_node')">+ organize_node</button>
-                <button class="add" onclick="addAction('organize_packages')">+ organize_packages</button>
-              </div>
-            </div>
+            <div id="network-inspector" class="subblock"></div>
           </div>
         </div>
 
-      </div>
+        <!-- UNIVERSE & ACTIONS -->
+        <div class="subview" id="bsub-universe">
+          <div class="subblock">
+            <div class="subblock-title">Universe settings</div>
+            <div id="universe-settings-network"></div>
+          </div>
 
-      <!-- PREVIEW -->
-      <div class="preview-pane">
-        <div class="preview-head">
-          <h3>step-config.xml</h3>
-          <span class="chain"><span class="node small"></span><span class="arm" style="width:8px"></span><span class="node small"></span></span>
+          <div class="subblock">
+            <div class="subblock-title">Action sequence <span class="help-bubble" tabindex="0">?<span class="tip">Runs top to bottom. Drag the handle to reorder. Use add_order/remove_order or add_source/remove_source to switch something on or off partway through — e.g. progress_time 10, remove_order, progress_time 10 more.</span></span></div>
+            <div id="network-actions-list" class="rows"></div>
+          </div>
         </div>
-        <div class="preview-box"><pre id="xml-preview"></pre></div>
-        <div class="filebar">
-          <input type="text" id="xml-filename" value="model.xml">
-          <button class="ghost small" onclick="document.getElementById('xml-load-input').click()">Load .xml</button>
-          <input type="file" id="xml-load-input" accept=".xml" style="display:none;">
-          <button class="primary" onclick="downloadXML()">Download</button>
+
+        <!-- XML -->
+        <div class="subview" id="bsub-xml">
+          <div class="preview-pane" style="position:static;">
+            <div class="preview-head">
+              <h3>step-config.xml</h3>
+              <span class="chain"><span class="node small"></span><span class="arm" style="width:8px"></span><span class="node small"></span></span>
+            </div>
+            <div class="preview-box"><pre id="xml-preview-network"></pre></div>
+            <div class="filebar">
+              <input type="text" id="xml-filename-network" value="model.xml">
+              <button class="ghost small" onclick="document.getElementById('xml-load-input-network').click()">Load .xml</button>
+              <input type="file" id="xml-load-input-network" accept=".xml" style="display:none;">
+              <button class="primary" onclick="downloadXML()">Download</button>
+            </div>
+            <p class="empty-hint" id="xml-load-status-network" style="margin-top:6px;"></p>
+          </div>
         </div>
-        <p class="empty-hint" id="xml-load-status" style="margin-top:6px;"></p>
-      </div>
-    </div>
-    </div>
+  </div>
   </div>
 
   <!-- ============ VISUALIZE VIEW ============ -->
@@ -1108,9 +1112,6 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
     document.getElementById('view-'+btn.dataset.view).classList.add('active');
   });
 });
-document.querySelectorAll('.section-head').forEach(h=>{
-  h.addEventListener('click', ()=> h.parentElement.classList.toggle('collapsed'));
-});
 document.querySelectorAll('#view-visualize .subtab-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     document.querySelectorAll('#view-visualize .subtab-btn').forEach(b=>b.classList.remove('active'));
@@ -1148,6 +1149,7 @@ let networkRenderScheduled = false;
 let networkViewport = null; // {x, y, w, h}
 let networkViewportLocked = false;
 let networkGroups = []; // {id, x, y, w, h, label, color}
+let universeSettings = { stepsize:'1', stepunit:'a', cores:'1', refdate:'', solver:'cram16', showAdvanced:false };
 
 /* ===================== helpers ===================== */
 function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -1192,6 +1194,66 @@ document.addEventListener('focusout', e=>{
   const b = e.target.closest('.help-bubble');
   if(b) hideHelpTooltip(b);
 });
+const STEP_UNIT_LABELS = {a:'years (a)', m:'months', d:'days', h:'hours', s:'seconds'};
+function universeSettingsHtml(loc){
+  return `
+    <div class="field-grid">
+      <div class="field"><label>Step size <span class="help-bubble" tabindex="0">?<span class="tip">How many step units progress_time advances per call, e.g. step_size=2, step_unit=years advances 2 years each time.</span></span></label>
+        <input type="number" id="u-stepsize-${loc}" value="${esc(universeSettings.stepsize)}" step="any" oninput="updateUniverseSettingSilent('stepsize',this.value,'${loc}')" onblur="updateUniverseSetting('stepsize',this.value)"></div>
+      <div class="field"><label>Step unit <span class="help-bubble" tabindex="0">?<span class="tip">The time unit that step size, order rate, and action timeunits are all measured in.</span></span></label>
+        <select id="u-stepunit-${loc}" onchange="updateUniverseSetting('stepunit',this.value)">
+          ${Object.keys(STEP_UNIT_LABELS).map(u=>`<option value="${u}" ${universeSettings.stepunit===u?'selected':''}>${STEP_UNIT_LABELS[u]}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <label class="advanced-toggle" style="margin-top:2px;">
+      <input type="checkbox" id="u-adv-${loc}" ${universeSettings.showAdvanced?'checked':''} onchange="updateUniverseSetting('showAdvanced',this.checked)">
+      Show advanced settings (cores, solver)
+    </label>
+    ${universeSettings.showAdvanced ? `
+    <div class="field-grid" style="margin-top:8px;">
+      <div class="field"><label>Cores <span class="help-bubble" tabindex="0">?<span class="tip">Number of CPU cores the simulator may use for parallelizable work.</span></span></label>
+        <input type="number" id="u-cores-${loc}" value="${esc(universeSettings.cores)}" min="1" oninput="updateUniverseSettingSilent('cores',this.value,'${loc}')" onblur="updateUniverseSetting('cores',this.value)"></div>
+      <div class="field"><label>Solver <span class="help-bubble" tabindex="0">?<span class="tip">Method used for the radioactive decay calculation each step. cram16 is faster; cram48 is higher-precision (and more expensive) for long, stiff decay chains.</span></span></label>
+        <select id="u-solver-${loc}" onchange="updateUniverseSetting('solver',this.value)">
+          <option value="cram16" ${universeSettings.solver==='cram16'?'selected':''}>cram16</option>
+          <option value="cram48" ${universeSettings.solver==='cram48'?'selected':''}>cram48</option>
+        </select>
+      </div>
+    </div>` : ''}`;
+}
+function renderUniverseSettings(){
+  const el2 = document.getElementById('universe-settings-network');
+  if(el2) el2.innerHTML = universeSettingsHtml('network');
+}
+function updateUniverseSettingSilent(key, val, sourceLoc){
+  universeSettings[key] = val;
+  // mirror the raw typed value into the OTHER copy without re-rendering either (preserves focus)
+  const otherLoc = sourceLoc==='form' ? 'network' : 'form';
+  const otherEl = document.getElementById(`u-${key}-${otherLoc}`);
+  if(otherEl && document.activeElement!==otherEl) otherEl.value = val;
+  buildXML();
+}
+function packageRefDateHtml(){
+  return `
+    <div class="field span2">
+      <label>Simulation reference date (t = 0) <span class="help-bubble" tabindex="0">?<span class="tip">The calendar date that corresponds to t=0 in the simulation — used to convert a package's "inventory measured on" date into the seconds Wastimate needs.</span></span></label>
+      <input type="datetime-local" id="u-refdate" value="${esc(universeSettings.refdate)}" onchange="updateUniverseSetting('refdate',this.value)">
+    </div>`;
+}
+function renderPackageRefDate(){
+  const el = document.getElementById('package-refdate');
+  if(!el) return;
+  // only worth showing once it's actually relevant -- either already set, or some package has a
+  // "measured on" date that needs it -- otherwise it's just clutter on an empty/simple model
+  const relevant = !!universeSettings.refdate || packages.some(p=>p.packageDate);
+  el.innerHTML = relevant ? packageRefDateHtml() : '';
+}
+function updateUniverseSetting(key, val){
+  universeSettings[key] = val;
+  renderUniverseSettings();
+  if(key==='refdate') renderPackages(); else buildXML();
+}
 function packageLabels(){ return packages.map(p=>p.label).filter(Boolean); }
 function nodeLabels(){ return nodes.map(n=>n.label).filter(Boolean); }
 function allNuclideLabels(){
@@ -1207,8 +1269,8 @@ function actionNuclideLabels(a){
   (a.nuclides||'').split(/\s+/).filter(Boolean).forEach(n=> set.add(n));
   return Array.from(set).sort();
 }
-function addSpecificNuclideToAction(actionId){
-  const input = document.getElementById(`addnuc-${actionId}`);
+function addSpecificNuclideToAction(actionId, loc){
+  const input = document.getElementById(`addnuc-${loc}-${actionId}`);
   if(!input) return;
   const raw = input.value.trim();
   if(!raw) return;
@@ -1320,8 +1382,7 @@ function computePackageDateSeconds(pkg){
   if(!pkg.packageDate){
     return (typeof pkg.dateSecondsOverride === 'number') ? pkg.dateSecondsOverride : null;
   }
-  const refInput = document.getElementById('u-refdate');
-  const ref = refInput ? refInput.value : '';
+  const ref = universeSettings.refdate;
   if(!ref) return null;
   const diffMs = new Date(ref).getTime() - new Date(pkg.packageDate).getTime();
   if(isNaN(diffMs)) return null;
@@ -1505,30 +1566,42 @@ function commitExcelPackages(){
 }
 
 /* ===================== PACKAGES ===================== */
-function copyPackageLabels(){
+function toggleExcelImportPanel(){
+  const panel = document.getElementById('pkg-excel-panel');
+  if(!panel) return;
+  panel.style.display = panel.style.display === 'none' ? '' : 'none';
+}
+function copyPackageLabels(btnEl){
   const text = packageLabels().join(' ');
-  const btn = document.getElementById('copy-pkg-labels-btn');
+  const btn = btnEl || document.getElementById('copy-pkg-labels-btn');
   const flash = ok=>{ if(!btn) return; const old = btn.textContent; btn.textContent = ok ? 'copied!' : 'copy failed'; setTimeout(()=>{ btn.textContent = old; }, 1400); };
   if(!text){ flash(false); return; }
-  if(navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(text).then(()=>flash(true)).catch(()=>flash(false));
-  } else {
+  const legacyCopy = ()=>{
     try{
       const ta = document.createElement('textarea');
       ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
       document.body.appendChild(ta); ta.select();
-      document.execCommand('copy');
+      const ok = document.execCommand('copy');
       document.body.removeChild(ta);
-      flash(true);
+      flash(ok);
     }catch(e){ flash(false); }
+  };
+  // The modern Clipboard API can exist but still reject (permission denied in a sandboxed/embedded
+  // context, no secure context, etc.) -- fall back to the older execCommand method instead of just
+  // giving up, since that one works in more restrictive environments.
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(()=>flash(true)).catch(legacyCopy);
+  } else {
+    legacyCopy();
   }
 }
-function packageCardHtml(p){
+function packageCardHtml(p, loc){
+  loc = loc || 'form';
   return `
-    <div class="entry-card" id="pkgcard-${p.id}">
+    <div class="entry-card" id="pkgcard-${loc}-${p.id}">
       <button class="remove" onclick="removePackage('${p.id}')">&times;</button>
       <div class="field-grid">
-        <div class="field"><label>Label</label><input type="text" value="${esc(p.label)}" oninput="updatePkgSilent('${p.id}','label',this.value)" onblur="updatePkg('${p.id}','label',this.value)"></div>
+        <div class="field"><label>Label</label><input type="text" id="pkg-label-${loc}-${p.id}" value="${esc(p.label)}" oninput="updatePkgSilent('${p.id}','label',this.value,'${loc}')" onblur="updatePkg('${p.id}','label',this.value)"></div>
         <div class="field"><label>Mass ${help('Total package mass. Required for activity_concentration mode, and for any activity_concentration/heat_concentration criteria that reference this package.')}</label><input type="number" step="any" value="${esc(p.mass)}" oninput="updatePkg('${p.id}','mass',this.value)"></div>
         <div class="field"><label>Volume ${help('Total package volume. Needed for heat_concentration criteria and volume-based reporting.')}</label><input type="number" step="any" value="${esc(p.volume)}" oninput="updatePkg('${p.id}','volume',this.value)"></div>
         <div class="field"><label>Mode ${help('How to interpret the nuclide values below: atoms = raw atom counts, activity = Bq, activity_concentration = Bq per unit mass (must match the Mass unit).')}</label>
@@ -1552,8 +1625,8 @@ function packageCardHtml(p){
           <input type="datetime-local" value="${esc(p.packageDate)}" onchange="updatePkg('${p.id}','packageDate',this.value)">
           ${dateHintHtml(p)}
         </div>
-        <div class="field checkbox"><input type="checkbox" id="rad-${p.id}" ${p.radioactive?'checked':''} onchange="updatePkg('${p.id}','radioactive',this.checked)"><label for="rad-${p.id}">radioactive</label>${help('Whether this package\'s nuclides decay over time at all. Turn off for genuinely non-radioactive/stable material.')}</div>
-        <div class="field checkbox"><input type="checkbox" id="dc-${p.id}" ${p.decay_chain?'checked':''} onchange="updatePkg('${p.id}','decay_chain',this.checked)"><label for="dc-${p.id}">decay_chain</label>${help('Whether to track decay daughters (the chain of nuclides this one decays into), not just the parent nuclide\'s own decay.')}</div>
+        <div class="field checkbox"><input type="checkbox" id="rad-${loc}-${p.id}" ${p.radioactive?'checked':''} onchange="updatePkg('${p.id}','radioactive',this.checked)"><label for="rad-${loc}-${p.id}">radioactive</label>${help('Whether this package\'s nuclides decay over time at all. Turn off for genuinely non-radioactive/stable material.')}</div>
+        <div class="field checkbox"><input type="checkbox" id="dc-${loc}-${p.id}" ${p.decay_chain?'checked':''} onchange="updatePkg('${p.id}','decay_chain',this.checked)"><label for="dc-${loc}-${p.id}">decay_chain</label>${help('Whether to track decay daughters (the chain of nuclides this one decays into), not just the parent nuclide\'s own decay.')}</div>
       </div>` : ''}
       <div class="subblock">
         <div class="subblock-title">Nuclide inventory</div>
@@ -1572,9 +1645,11 @@ function packageCardHtml(p){
     </div>`;
 }
 function renderPackages(){
-  const el = document.getElementById('packages-list');
-  el.innerHTML = packages.map(p=>packageCardHtml(p)).join('') || '<p class="empty-hint">No packages yet.</p>';
-  document.getElementById('count-packages').textContent = packages.length;
+  const netEl = document.getElementById('network-packages-list');
+  if(netEl) netEl.innerHTML = packages.map(p=>packageCardHtml(p,'net')).join('') || '<p class="empty-hint">No packages yet.</p>';
+  const countEl2 = document.getElementById('count-packages-network');
+  if(countEl2) countEl2.textContent = packages.length;
+  renderPackageRefDate();
   renderNodes(); renderSources(); renderOrders();
   buildXML();
 }
@@ -1584,10 +1659,13 @@ function addPackage(){
   // Append just the new card instead of rebuilding every existing card -- rebuilding the whole
   // list on every add made creating N packages an O(N^2) operation, which is what made adding
   // 100+ packages one at a time feel like it was getting slower and slower as you went.
-  const el = document.getElementById('packages-list');
-  if(packages.length === 1) el.innerHTML = ''; // clear the "No packages yet" placeholder
-  el.insertAdjacentHTML('beforeend', packageCardHtml(p));
-  document.getElementById('count-packages').textContent = packages.length;
+  const netEl = document.getElementById('network-packages-list');
+  if(netEl){
+    if(packages.length === 1) netEl.innerHTML = '';
+    netEl.insertAdjacentHTML('beforeend', packageCardHtml(p,'net'));
+  }
+  const countEl2 = document.getElementById('count-packages-network');
+  if(countEl2) countEl2.textContent = packages.length;
   renderNodes(); renderSources(); renderOrders();
   buildXML();
 }
@@ -1597,7 +1675,15 @@ function updatePkg(id,key,val){
   if(key==='packageDate' || key==='showAdvanced' || key==='mode'){ renderPackages(); return; }
   buildXML();
 }
-function updatePkgSilent(id,key,val){ const p=packages.find(x=>x.id===id); if(p) p[key]=val; buildXML(); }
+function updatePkgSilent(id,key,val,sourceLoc){
+  const p=packages.find(x=>x.id===id); if(p) p[key]=val;
+  if(sourceLoc && key==='label'){
+    const otherLoc = sourceLoc==='form' ? 'net' : 'form';
+    const otherEl = document.getElementById(`pkg-label-${otherLoc}-${id}`);
+    if(otherEl && document.activeElement!==otherEl) otherEl.value = val;
+  }
+  buildXML();
+}
 function addNuc(id){ packages.find(p=>p.id===id).nuclides.push({name:'',value:''}); renderPackages(); }
 function removeNuc(id,i){ packages.find(p=>p.id===id).nuclides.splice(i,1); renderPackages(); }
 function updateNuc(id,i,key,val){ packages.find(p=>p.id===id).nuclides[i][key]=val; buildXML(); }
@@ -1713,17 +1799,17 @@ function actionToggleRowHtml(actionId, fieldName, allLabels, currentValueStr, se
     return `<button type="button" class="pkg-btn ${included?'present':''}" onclick="toggleActionListField('${actionId}','${fieldName}','${esc(lbl)}')">${esc(lbl)}</button>`;
   }).join('');
 }
-function actionToggleSearchHtml(actionId, fieldName, allLabels, currentSearch){
+function actionToggleSearchHtml(actionId, fieldName, allLabels, currentSearch, loc){
   if(allLabels.length <= PKG_BUTTON_SEARCH_THRESHOLD) return '';
-  return `<input type="text" placeholder="Search... (${allLabels.length} total)" value="${esc(currentSearch||'')}" oninput="filterActionToggleRow('${actionId}','${fieldName}',this.value)" style="margin-bottom:8px;">`;
+  return `<input type="text" placeholder="Search... (${allLabels.length} total)" value="${esc(currentSearch||'')}" oninput="filterActionToggleRow('${actionId}','${fieldName}',this.value,'${loc}')" style="margin-bottom:8px;">`;
 }
-function filterActionToggleRow(actionId, fieldName, term){
+function filterActionToggleRow(actionId, fieldName, term, loc){
   const a = actions.find(x=>x.id===actionId);
   if(!a) return;
   a[fieldName+'Search'] = term;
-  const row = document.getElementById(`actbtnrow-${actionId}-${fieldName}`);
+  const row = document.getElementById(`actbtnrow-${loc}-${actionId}-${fieldName}`);
   if(!row) return;
-  const allLabels = fieldName==='nodes' ? nodeLabels() : fieldName==='packages' ? packageLabels() : allNuclideLabels();
+  const allLabels = fieldName==='nodes' ? nodeLabels() : fieldName==='packages' ? packageLabels() : actionNuclideLabels(a);
   row.innerHTML = actionToggleRowHtml(actionId, fieldName, allLabels, a[fieldName], term) || '<span class="empty-hint">No matches.</span>';
 }
 function nodeCardHtml(n){
@@ -1750,22 +1836,52 @@ function nodeCardHtml(n){
     </div>`;
 }
 function renderNodes(){
-  const el = document.getElementById('nodes-list');
-  el.innerHTML = nodes.map(n=>nodeCardHtml(n)).join('') || '<p class="empty-hint">No nodes yet.</p>';
-  document.getElementById('count-nodes').textContent = nodes.length;
   renderSources(); renderOrders(); renderActions();
   buildXML();
 }
 function updateNode(id,key,val){ const n=nodes.find(x=>x.id===id); n[key]=val; if(key==='label'){renderSources();renderOrders();renderActions();} buildXML(); }
 function updateNodeSilent(id,key,val){ const n=nodes.find(x=>x.id===id); if(n) n[key]=val; buildXML(); }
-function removeNode(id){ nodes = nodes.filter(n=>n.id!==id); if(networkSelection && networkSelection.type==='node' && networkSelection.id===id) networkSelection=null; renderNodes(); if(typeof renderNetworkDiagram==='function') renderNetworkDiagram(); if(typeof renderNetworkInspector==='function') renderNetworkInspector(); }
+function deleteOrdersReferencingNode(nodeLabel){
+  let deletedAnySelected = false;
+  orders = orders.filter(o => {
+    if(o.homenode === nodeLabel){
+      if(networkSelection && networkSelection.type==='order' && networkSelection.id===o.id) deletedAnySelected = true;
+      return false; // an order can't function without its home node -- delete it entirely
+    }
+    if(o.ordernodes && o.ordernodes.includes(nodeLabel)){
+      o.ordernodes = o.ordernodes.filter(n => n !== nodeLabel);
+      if(o.ordernodes.length === 0){
+        if(networkSelection && networkSelection.type==='order' && networkSelection.id===o.id) deletedAnySelected = true;
+        return false; // that was the only source node -- nothing left for this order to pull from
+      }
+    }
+    // the node might still be referenced as an optional target -- clear those, but keep the order
+    if(o.remaindernode === nodeLabel) o.remaindernode = '';
+    if(o.sortNode === nodeLabel) o.sortNode = '';
+    return true;
+  });
+  if(deletedAnySelected) networkSelection = null;
+}
+function removeNode(id){
+  const n = nodes.find(x=>x.id===id);
+  if(n && n.label) deleteOrdersReferencingNode(n.label);
+  nodes = nodes.filter(n=>n.id!==id);
+  if(networkSelection && networkSelection.type==='node' && networkSelection.id===id) networkSelection=null;
+  renderNodes();
+  if(typeof renderNetworkDiagram==='function') renderNetworkDiagram();
+  if(typeof renderNetworkInspector==='function') renderNetworkInspector();
+}
 
 /* ===================== SOURCES ===================== */
-function addSource(){ sources.push({id:nid(), label:'Source'+(sources.length+1), awaynode:'', package:'', magnitude:1, rate:0}); renderSources(); }
+function addSource(){ sources.push({id:nid(), label:'Source'+(sources.length+1), awaynode:'', package:'', magnitude:1, rate:0, disabled:false}); renderSources(); }
 function sourceCardHtml(s){
   return `
-    <div class="entry-card" id="sourcecard-${s.id}">
+    <div class="entry-card ${s.disabled?'is-disabled':''}" id="sourcecard-${s.id}">
       <button class="remove" onclick="removeSource('${s.id}')">&times;</button>
+      <label class="advanced-toggle" style="margin-bottom:8px;">
+        <input type="checkbox" ${s.disabled?'':'checked'} onchange="updateSrc('${s.id}','disabled',!this.checked)">
+        Enabled ${help('Unchecking this keeps the source defined but excludes it from the simulation entirely — the same as not creating it, without deleting it.')}
+      </label>
       <div class="field-grid">
         <div class="field"><label>Label</label><input type="text" value="${esc(s.label)}" oninput="updateSrc('${s.id}','label',this.value)"></div>
         <div class="field"><label>Away node ${help('Which node this source deposits new packages into.')}</label><select onchange="updateSrc('${s.id}','awaynode',this.value)"><option value=""></option>${optionList(nodeLabels(), s.awaynode)}</select></div>
@@ -1776,9 +1892,6 @@ function sourceCardHtml(s){
     </div>`;
 }
 function renderSources(){
-  const el = document.getElementById('sources-list');
-  el.innerHTML = sources.map(s=>sourceCardHtml(s)).join('') || '<p class="empty-hint">No sources yet.</p>';
-  document.getElementById('count-sources').textContent = sources.length;
   buildXML();
 }
 function updateSrc(id,key,val){ sources.find(s=>s.id===id)[key]=val; buildXML(); }
@@ -1788,7 +1901,7 @@ function removeSource(id){ sources = sources.filter(s=>s.id!==id); if(networkSel
 const DECAY_TYPES = ['alpha','beta-','beta+','ec','it','sf','n','p'];
 function addOrder(){
   orders.push({id:nid(), label:'Order'+(orders.length+1), homenode:'', remaindernode:'', ordernodes:[], mode:'transfer', magnitude:1,
-    direction:'old', mixratio:0.5, crumbs:false, rate:0, showAdvanced:false,
+    direction:'old', mixratio:0.5, crumbs:false, rate:0, showAdvanced:false, disabled:false,
     criteria:[], conditions:[], packageOut:'', packageMass:'', sortNode:''});
   renderOrders();
 }
@@ -1881,8 +1994,12 @@ function updateFilterRowSilent(oid,ci,fi,key,val){ orders.find(o=>o.id===oid).cr
 
 function orderCardHtml(o){
   return `
-    <div class="entry-card" id="ordercard-${o.id}">
+    <div class="entry-card ${o.disabled?'is-disabled':''}" id="ordercard-${o.id}">
       <button class="remove" onclick="removeOrder('${o.id}')">&times;</button>
+      <label class="advanced-toggle" style="margin-bottom:8px;">
+        <input type="checkbox" ${o.disabled?'':'checked'} onchange="updateOrd('${o.id}','disabled',!this.checked)">
+        Enabled ${help('Unchecking this keeps the order defined but excludes it from the simulation entirely — the same as not creating it, without deleting it.')}
+      </label>
       <div class="field-grid">
         <div class="field"><label>Label</label><input type="text" value="${esc(o.label)}" oninput="updateOrdSilent('${o.id}','label',this.value)" onblur="updateOrd('${o.id}','label',this.value)"></div>
         <div class="field"><label>Mode ${help('transfer = move packages, combine = merge several into one, separate = split off part of a package, sort = reorder within a node, batch = group into fixed-size batches.')}</label>
@@ -2016,9 +2133,6 @@ function orderCardHtml(o){
     </div>`;
 }
 function renderOrders(){
-  const el = document.getElementById('orders-list');
-  el.innerHTML = orders.map(o=>orderCardHtml(o)).join('') || '<p class="empty-hint">No orders yet.</p>';
-  document.getElementById('count-orders').textContent = orders.length;
   buildXML();
 }
 function updateOrd(id,key,val){ orders.find(o=>o.id===id)[key]=val; renderOrders(); }
@@ -2027,9 +2141,11 @@ function removeOrder(id){ orders = orders.filter(o=>o.id!==id); if(networkSelect
 function updateCriterionSilent(oid,ci,key,val){ orders.find(o=>o.id===oid).criteria[ci][key]=val; buildXML(); }
 
 /* ===================== ACTIONS ===================== */
-function addAction(type){
+function addAction(type, atIndex){
   const base = {id:nid(), type};
   if(type==='progress_time') Object.assign(base,{steps:10});
+  if(type==='add_order' || type==='remove_order') Object.assign(base,{orderLabel:''});
+  if(type==='add_source' || type==='remove_source') Object.assign(base,{sourceLabel:''});
   if(type==='save_results') Object.assign(base,{filename:'results.xlsx', nodesAll:true, nodes:'', packagesAll:true, packages:'', variables:'mass activity', nuclides:'', nuclideMode:'total', aggMode:'sum', times:''});
   if(type==='save_state') Object.assign(base,{filename:'state.xml'});
   if(type==='organize_node') Object.assign(base,{
@@ -2043,7 +2159,10 @@ function addAction(type){
     variablesText:'mass', weightsText:'', functionsText:'', optimizationText:'', indifferenceText:'', preferenceText:'',
     criteria:[], conditions:[]
   });
-  actions.push(base);
+  if(typeof atIndex === 'number') actions.splice(atIndex, 0, base);
+  else actions.push(base);
+  expandedActionIds.add(base.id); // newly created actions open expanded so you can configure them right away
+  closeActionInsertMenu();
   renderActions();
 }
 function addActCriterion(aid){
@@ -2075,20 +2194,154 @@ function regenerateConfigGrid(aid){
   a.configuration = Array.from({length:rows}, ()=> '0'.repeat(cols)).join('\n');
   renderActions();
 }
+const ACTION_TYPE_COLORS = {
+  add_order:'var(--ok)', remove_order:'var(--danger)',
+  add_source:'var(--ok)', remove_source:'var(--danger)',
+  save_state:'var(--slate)', save_results:'var(--slate)',
+  organize_node:'var(--slate)', organize_packages:'var(--slate)'
+};
+const ACTION_TYPE_LABELS = {
+  progress_time:'progress_time', add_order:'add_order', remove_order:'remove_order',
+  add_source:'add_source', remove_source:'remove_source', save_results:'save_results',
+  save_state:'save_state', organize_node:'organize_node', organize_packages:'organize_packages'
+};
+const ACTION_MENU_GROUPS = [
+  { type:'progress_time', label:'progress_time' },
+  { label:'order on/off', children:[
+      { type:'add_order', label:'enable an order' },
+      { type:'remove_order', label:'disable an order' }
+  ]},
+  { label:'source on/off', children:[
+      { type:'add_source', label:'enable a source' },
+      { type:'remove_source', label:'disable a source' }
+  ]},
+  { label:'save', children:[
+      { type:'save_results', label:'save_results' },
+      { type:'save_state', label:'save_state' }
+  ]},
+  { label:'organize', children:[
+      { type:'organize_node', label:'organize_node' },
+      { type:'organize_packages', label:'organize_packages' }
+  ]}
+];
+let expandedActionIds = new Set(); // which timeline entries are showing their full editable form
+function actionSummaryText(a){
+  switch(a.type){
+    case 'progress_time': return `${a.steps || '?'} step${a.steps==1?'':'s'}`;
+    case 'add_order': return a.orderLabel ? `enable "${a.orderLabel}"` : '(no order chosen yet)';
+    case 'remove_order': return a.orderLabel ? `disable "${a.orderLabel}"` : '(no order chosen yet)';
+    case 'add_source': return a.sourceLabel ? `enable "${a.sourceLabel}"` : '(no source chosen yet)';
+    case 'remove_source': return a.sourceLabel ? `disable "${a.sourceLabel}"` : '(no source chosen yet)';
+    case 'save_state': return a.filename || '(no filename yet)';
+    case 'save_results': return a.filename || '(no filename yet)';
+    case 'organize_node': return (a.filename || '(no filename yet)') + (a.node ? ` @ ${a.node}` : '');
+    case 'organize_packages': return (a.filename || '(no filename yet)') + (a.node ? ` @ ${a.node}` : '');
+    default: return '';
+  }
+}
+function toggleActionExpanded(id){
+  if(expandedActionIds.has(id)) expandedActionIds.delete(id);
+  else expandedActionIds.add(id);
+  renderActions();
+}
+function closeActionInsertMenu(){
+  const menu = document.getElementById('action-insert-menu');
+  if(menu) menu.remove();
+}
+function actionMenuGroupsHtml(atIndex){
+  return ACTION_MENU_GROUPS.map(g=>{
+    if(!g.children){
+      return `<button onclick="addAction('${g.type}',${atIndex})">+ ${g.label}</button>`;
+    }
+    return `
+      <div class="action-menu-group">
+        <button class="action-menu-group-toggle" onclick="toggleActionMenuGroup(this)">+ ${g.label} <span class="action-menu-chevron">&#9656;</span></button>
+        <div class="action-menu-group-children" style="display:none;">
+          ${g.children.map(c=>`<button onclick="addAction('${c.type}',${atIndex})">${c.label}</button>`).join('')}
+        </div>
+      </div>`;
+  }).join('');
+}
+function toggleActionMenuGroup(btn){
+  const children = btn.nextElementSibling;
+  const isOpen = children.style.display !== 'none';
+  children.style.display = isOpen ? 'none' : 'block';
+  const chevron = btn.querySelector('.action-menu-chevron');
+  if(chevron) chevron.innerHTML = isOpen ? '&#9656;' : '&#9662;';
+}
+function showActionInsertMenu(evt, atIndex){
+  evt.stopPropagation();
+  closeActionInsertMenu();
+  const menu = document.createElement('div');
+  menu.id = 'action-insert-menu';
+  menu.className = 'action-insert-menu';
+  menu.innerHTML = actionMenuGroupsHtml(atIndex);
+  document.body.appendChild(menu);
+  const rect = evt.currentTarget.getBoundingClientRect();
+  const menuRect = menu.getBoundingClientRect();
+  let left = rect.left + rect.width/2 - menuRect.width/2;
+  left = Math.max(8, Math.min(left, window.innerWidth - menuRect.width - 8));
+  let top = rect.bottom + 6;
+  if(top + menuRect.height > window.innerHeight - 8) top = rect.top - menuRect.height - 6;
+  menu.style.left = left + 'px';
+  menu.style.top = top + 'px';
+}
+document.addEventListener('click', e=>{
+  const menu = document.getElementById('action-insert-menu');
+  if(menu && !menu.contains(e.target) && !e.target.classList.contains('action-insert-plus')) closeActionInsertMenu();
+});
+function actionTimelineItemHtml(a, i, loc){
+  const dotColor = ACTION_TYPE_COLORS[a.type] || 'var(--amber)';
+  const isExpanded = expandedActionIds.has(a.id);
+  return `
+    <div class="action-insert-gap" onclick="showActionInsertMenu(event, ${i})"><span class="action-insert-gap-marker"></span><span class="action-insert-plus">+</span></div>
+    <div class="action-timeline-item" data-action-id="${a.id}">
+      <div class="action-timeline-marker">
+        <span class="action-drag-handle" title="drag to reorder">&#8942;&#8942;</span>
+        <span class="action-timeline-dot" style="border-color:${dotColor};color:${dotColor};">${i+1}</span>
+      </div>
+      <div class="action-timeline-content">
+        <div class="action-summary-row" onclick="toggleActionExpanded('${a.id}')">
+          <span class="action-summary-type" style="color:${dotColor};">${ACTION_TYPE_LABELS[a.type]||a.type}</span>
+          <span class="action-summary-detail">${esc(actionSummaryText(a))}</span>
+          <span class="action-summary-chevron">${isExpanded?'&#9650;':'&#9660;'}</span>
+          ${!isExpanded ? `<button class="action-summary-remove" onclick="event.stopPropagation();removeAction('${a.id}')" title="delete">&times;</button>` : ''}
+        </div>
+        ${isExpanded ? actionCardHtml(a,i,loc) : ''}
+      </div>
+    </div>`;
+}
 function renderActions(){
-  const el = document.getElementById('actions-list');
-  el.innerHTML = actions.map((a,i)=>{
+  closeActionInsertMenu();
+  const el2 = document.getElementById('network-actions-list');
+  if(el2) el2.innerHTML = actions.length
+    ? `<div class="action-timeline">${actions.map((a,i)=>actionTimelineItemHtml(a,i,'net')).join('')}<div class="action-insert-gap" onclick="showActionInsertMenu(event, ${actions.length})"><span class="action-insert-gap-marker"></span><span class="action-insert-plus">+</span></div></div>`
+    : `<div class="action-timeline"><div class="action-insert-gap always-visible" onclick="showActionInsertMenu(event, 0)"><span class="action-insert-plus">+ add the first action</span></div></div>`;
+  const countEl = document.getElementById('count-actions');
+  if(countEl) countEl.textContent = actions.length;
+  wireActionDrag('network-actions-list', 'net');
+  buildXML();
+}
+function actionCardHtml(a, i, loc){
     let body = '';
     let extra = '';
     if(a.type==='progress_time'){
       body = `<div class="field"><label>Timesteps ${help('How many step units to advance the simulation by (see Step size/unit above).')}</label><input type="number" value="${esc(a.steps)}" oninput="updateAction('${a.id}','steps',this.value)"></div>`;
+    } else if(a.type==='add_order' || a.type==='remove_order'){
+      body = `<div class="field"><label>Order ${help(a.type==='add_order' ? 'Re-enables an order that is currently inactive (e.g. was disabled earlier with remove_order), or activates one not running yet.' : 'Deactivates this order from this point onward, without deleting it — use add_order later to bring it back.')}</label>
+        <select onchange="updateAction('${a.id}','orderLabel',this.value)"><option value=""></option>${optionList(orders.map(o=>o.label).filter(Boolean), a.orderLabel)}</select>
+      </div>`;
+    } else if(a.type==='add_source' || a.type==='remove_source'){
+      body = `<div class="field"><label>Source ${help((a.type==='add_source' ? 'Re-enables a source that is currently inactive, or activates one not running yet.' : 'Deactivates this source from this point onward, without deleting it — use add_source later to bring it back.') + ' Requires the small xml_simulate.py patch adding add_source/remove_source to the action dispatcher (ask if you do not have it yet).')}</label>
+        <select onchange="updateAction('${a.id}','sourceLabel',this.value)"><option value=""></option>${optionList(sources.map(s=>s.label).filter(Boolean), a.sourceLabel)}</select>
+      </div>`;
     } else if(a.type==='save_state'){
       body = `<div class="field"><label>Filename ${help('Writes the full simulation state to this XML file — every node, package, and nuclide inventory at this point in time.')}</label><input type="text" value="${esc(a.filename)}" oninput="updateAction('${a.id}','filename',this.value)"></div>`;
     } else if(a.type==='save_results'){
       body = `
         <div class="field"><label>Filename ${help('Writes a spreadsheet, one sheet per variable, with a time series of that variable for each selected node/package.')}</label><input type="text" value="${esc(a.filename)}" oninput="updateAction('${a.id}','filename',this.value)"></div>
-        <div class="field checkbox"><input type="checkbox" id="na-${a.id}" ${a.nodesAll?'checked':''} onchange="updateAction('${a.id}','nodesAll',this.checked)"><label for="na-${a.id}">all nodes</label></div>
-        <div class="field checkbox"><input type="checkbox" id="pa-${a.id}" ${a.packagesAll?'checked':''} onchange="updateAction('${a.id}','packagesAll',this.checked)"><label for="pa-${a.id}">all packages</label></div>
+        <div class="field checkbox"><input type="checkbox" id="na-${loc}-${a.id}" ${a.nodesAll?'checked':''} onchange="updateAction('${a.id}','nodesAll',this.checked)"><label for="na-${loc}-${a.id}">all nodes</label></div>
+        <div class="field checkbox"><input type="checkbox" id="pa-${loc}-${a.id}" ${a.packagesAll?'checked':''} onchange="updateAction('${a.id}','packagesAll',this.checked)"><label for="pa-${loc}-${a.id}">all packages</label></div>
         <div class="field span2"><label>Times (blank = full history) ${help('Optional list of specific times to report, instead of every saved timestep.')}</label><input type="text" value="${esc(a.times)}" oninput="updateAction('${a.id}','times',this.value)"></div>
       `;
       extra = `
@@ -2099,16 +2352,16 @@ function renderActions(){
         ${!a.nodesAll ? `
         <div class="subblock">
           <div class="subblock-title">Nodes to include</div>
-          ${actionToggleSearchHtml(a.id, 'nodes', nodeLabels(), a.nodesSearch)}
-          <div class="pkg-btn-row" id="actbtnrow-${a.id}-nodes">
+          ${actionToggleSearchHtml(a.id, 'nodes', nodeLabels(), a.nodesSearch, loc)}
+          <div class="pkg-btn-row" id="actbtnrow-${loc}-${a.id}-nodes">
             ${actionToggleRowHtml(a.id, 'nodes', nodeLabels(), a.nodes, a.nodesSearch) || '<span class="empty-hint">No nodes defined yet.</span>'}
           </div>
         </div>` : ''}
         ${!a.packagesAll ? `
         <div class="subblock">
           <div class="subblock-title">Packages to include</div>
-          ${actionToggleSearchHtml(a.id, 'packages', packageLabels(), a.packagesSearch)}
-          <div class="pkg-btn-row" id="actbtnrow-${a.id}-packages">
+          ${actionToggleSearchHtml(a.id, 'packages', packageLabels(), a.packagesSearch, loc)}
+          <div class="pkg-btn-row" id="actbtnrow-${loc}-${a.id}-packages">
             ${actionToggleRowHtml(a.id, 'packages', packageLabels(), a.packages, a.packagesSearch) || '<span class="empty-hint">No packages defined yet.</span>'}
           </div>
         </div>` : ''}
@@ -2126,11 +2379,11 @@ function renderActions(){
           ${a.nuclideMode==='specific' ? `
           <p class="empty-hint" style="margin-top:6px;">Pick from what is already in a package below, or type in any other nuclide (e.g. an expected decay daughter) and add it.</p>
           <div style="display:flex;gap:8px;margin:8px 0;flex-wrap:wrap;">
-            <input type="text" list="nuclide-suggestions" id="addnuc-${a.id}" placeholder="e.g. Th234" style="flex:1;min-width:160px;">
-            <button class="ghost small" onclick="addSpecificNuclideToAction('${a.id}')">+ add</button>
+            <input type="text" list="nuclide-suggestions" id="addnuc-${loc}-${a.id}" placeholder="e.g. Th234" style="flex:1;min-width:160px;">
+            <button class="ghost small" onclick="addSpecificNuclideToAction('${a.id}','${loc}')">+ add</button>
           </div>
-          ${actionToggleSearchHtml(a.id, 'nuclides', actionNuclideLabels(a), a.nuclidesSearch)}
-          <div class="pkg-btn-row" id="actbtnrow-${a.id}-nuclides">
+          ${actionToggleSearchHtml(a.id, 'nuclides', actionNuclideLabels(a), a.nuclidesSearch, loc)}
+          <div class="pkg-btn-row" id="actbtnrow-${loc}-${a.id}-nuclides">
             ${actionToggleRowHtml(a.id, 'nuclides', actionNuclideLabels(a), a.nuclides, a.nuclidesSearch) || '<span class="empty-hint">No nuclides yet — add one above.</span>'}
           </div>` : ''}
         </div>
@@ -2192,7 +2445,7 @@ function renderActions(){
         <div class="field"><label>Filename ${help('Where the resulting grouped-package summary spreadsheet gets written.')}</label><input type="text" value="${esc(a.filename)}" oninput="updateAction('${a.id}','filename',this.value)"></div>
         <div class="field"><label>Node ${help('Which node to pull packages from and group.')}</label><select onchange="updateAction('${a.id}','node',this.value)"><option value=""></option>${optionList(nodeLabels(), a.node)}</select></div>
         <div class="field"><label>Group size ${help('How many packages get combined into each group.')}</label><input type="number" min="1" value="${esc(a.size)}" oninput="updateAction('${a.id}','size',this.value)"></div>
-        <div class="field checkbox"><input type="checkbox" id="srt-${a.id}" ${a.sort?'checked':''} onchange="updateAction('${a.id}','sort',this.checked)"><label for="srt-${a.id}">sort node in place</label>${help('If checked, the node contents are physically reordered by this grouping, not just reported.')}</div>
+        <div class="field checkbox"><input type="checkbox" id="srt-${loc}-${a.id}" ${a.sort?'checked':''} onchange="updateAction('${a.id}','sort',this.checked)"><label for="srt-${loc}-${a.id}">sort node in place</label>${help('If checked, the node contents are physically reordered by this grouping, not just reported.')}</div>
         <div class="field"><label>Timeunit</label>
           <select onchange="updateAction('${a.id}','timeunit',this.value)">
             ${['a','m','d','h','s'].map(u=>`<option value="${u}" ${a.timeunit===u?'selected':''}>${u}</option>`).join('')}
@@ -2267,12 +2520,69 @@ function renderActions(){
       <div class="field-grid">${body}</div>
       ${extra}
     </div>`;
-  }).join('') || '<p class="empty-hint">No actions yet &mdash; add at least a progress_time step.</p>';
-  buildXML();
 }
 function updateAction(id,key,val){ const a=actions.find(x=>x.id===id); a[key]=val; renderActions(); }
 function updateActionSilent(id,key,val){ const a=actions.find(x=>x.id===id); a[key]=val; buildXML(); }
 function removeAction(id){ actions = actions.filter(a=>a.id!==id); renderActions(); }
+
+/* ---- action timeline drag-to-reorder (pointer events, so it works on touch too) ---- */
+function moveAction(fromIndex, toIndex){
+  if(fromIndex===toIndex || fromIndex<0 || toIndex<0 || fromIndex>=actions.length || toIndex>=actions.length) return;
+  const [item] = actions.splice(fromIndex, 1);
+  actions.splice(toIndex, 0, item);
+  renderActions();
+}
+let actionDrag = null; // {actionId, loc}
+function wireActionDrag(containerId, loc){
+  const container = document.getElementById(containerId);
+  if(!container) return;
+  container.querySelectorAll('.action-drag-handle').forEach(handle=>{
+    handle.addEventListener('pointerdown', e=>{
+      const item = handle.closest('.action-timeline-item');
+      if(!item) return;
+      actionDrag = { actionId: item.dataset.actionId, loc, targetActionId:null, insertBefore:true };
+      item.classList.add('dragging');
+      try{ handle.setPointerCapture(e.pointerId); }catch(err){}
+      e.preventDefault();
+    });
+  });
+}
+document.addEventListener('pointermove', e=>{
+  if(!actionDrag) return;
+  const containerId = actionDrag.loc==='form' ? 'actions-list' : 'network-actions-list';
+  const container = document.getElementById(containerId);
+  if(!container) return;
+  const items = Array.from(container.querySelectorAll('.action-timeline-item'));
+  items.forEach(i=>i.classList.remove('drag-over-top','drag-over-bottom'));
+  let targetItem = null;
+  for(const item of items){
+    const rect = item.getBoundingClientRect();
+    if(e.clientY >= rect.top && e.clientY <= rect.bottom){ targetItem = item; break; }
+  }
+  if(targetItem && targetItem.dataset.actionId !== actionDrag.actionId){
+    const rect = targetItem.getBoundingClientRect();
+    const insertBefore = e.clientY < rect.top + rect.height/2;
+    targetItem.classList.add(insertBefore ? 'drag-over-top' : 'drag-over-bottom');
+    actionDrag.targetActionId = targetItem.dataset.actionId;
+    actionDrag.insertBefore = insertBefore;
+  } else {
+    actionDrag.targetActionId = null;
+  }
+});
+document.addEventListener('pointerup', e=>{
+  if(!actionDrag) return;
+  const drag = actionDrag;
+  actionDrag = null;
+  document.querySelectorAll('.action-timeline-item').forEach(i=>i.classList.remove('dragging','drag-over-top','drag-over-bottom'));
+  if(drag.targetActionId){
+    const fromIndex = actions.findIndex(a=>a.id===drag.actionId);
+    let toIndex = actions.findIndex(a=>a.id===drag.targetActionId);
+    if(fromIndex<0 || toIndex<0) return;
+    if(!drag.insertBefore) toIndex += 1;
+    if(toIndex > fromIndex) toIndex -= 1; // removing the dragged item first shifts later indices down by one
+    moveAction(fromIndex, toIndex);
+  }
+});
 
 /* ===================== XML GENERATION ===================== */
 function xmlEscAttr(s){ return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
@@ -2386,13 +2696,33 @@ function buildXML(){
   }
 
   // universe
-  const stepsize = document.getElementById('u-stepsize')?.value || 1;
-  const stepunit = document.getElementById('u-stepunit')?.value || 'a';
-  const cores = document.getElementById('u-cores')?.value || 1;
-  lines.push(`  <universe num_of_cores="${xmlEscAttr(cores)}" step_size="${xmlEscAttr(stepsize)}" step_unit="${xmlEscAttr(stepunit)}">`);
+  const stepsize = universeSettings.stepsize || 1;
+  const stepunit = universeSettings.stepunit || 'a';
+  const cores = universeSettings.cores || 1;
+  lines.push(`  <universe num_of_cores="${xmlEscAttr(cores)}" step_size="${xmlEscAttr(stepsize)}" step_unit="${xmlEscAttr(stepunit)}" solver="${xmlEscAttr(universeSettings.solver||'cram16')}">`);
+  const anyDisabled = orders.some(o=>o.disabled) || sources.some(s=>s.disabled);
+  if(anyDisabled){
+    // The universe element's text content is a shared include-list across nodes, orders, and
+    // sources all at once (per xml_simulate.py) -- so it must list every enabled label of ALL
+    // three, not just the disabled-capable ones, or nodes would silently drop out too.
+    const activeLabels = [
+      ...nodes.map(n=>n.label),
+      ...orders.filter(o=>!o.disabled).map(o=>o.label),
+      ...sources.filter(s=>!s.disabled).map(s=>s.label)
+    ].filter(Boolean);
+    lines.push(`    ${xmlEscAttr(activeLabels.join(' '))}`);
+  }
   actions.forEach(a=>{
     if(a.type==='progress_time'){
       lines.push(`    <action progress_time="${xmlEscAttr(a.steps)}"/>`);
+    } else if(a.type==='add_order'){
+      if(a.orderLabel) lines.push(`    <action add_order="${xmlEscAttr(a.orderLabel)}"/>`);
+    } else if(a.type==='remove_order'){
+      if(a.orderLabel) lines.push(`    <action remove_order="${xmlEscAttr(a.orderLabel)}"/>`);
+    } else if(a.type==='add_source'){
+      if(a.sourceLabel) lines.push(`    <action add_source="${xmlEscAttr(a.sourceLabel)}"/>`);
+    } else if(a.type==='remove_source'){
+      if(a.sourceLabel) lines.push(`    <action remove_source="${xmlEscAttr(a.sourceLabel)}"/>`);
     } else if(a.type==='save_state'){
       lines.push(`    <action save_state="${xmlEscAttr(a.filename)}"/>`);
     } else if(a.type==='save_results'){
@@ -2456,14 +2786,16 @@ function buildXML(){
 
   lines.push('</wastimate_model>');
   const xml = lines.join('\n');
-  document.getElementById('xml-preview').textContent = xml;
+  const netPreview = document.getElementById('xml-preview-network');
+  if(netPreview) netPreview.textContent = xml;
   if(typeof scheduleNetworkRender === 'function') scheduleNetworkRender();
   return xml;
 }
 
 function downloadXML(){
   const xml = buildXML();
-  const fname = document.getElementById('xml-filename').value || 'model.xml';
+  const fnameEl = document.getElementById('xml-filename-network');
+  const fname = (fnameEl && fnameEl.value) || 'model.xml';
   const blob = new Blob([xml], {type:'application/xml'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -2551,7 +2883,8 @@ function importModelXML(xmlText){
   root.querySelectorAll(':scope > sources > source').forEach(se=>{
     newSources.push({
       id:nid(), label: se.getAttribute('label')||'', awaynode: se.getAttribute('awaynode')||'',
-      package: se.getAttribute('package')||'', magnitude: se.getAttribute('magnitude')||1, rate: se.getAttribute('rate')||0
+      package: se.getAttribute('package')||'', magnitude: se.getAttribute('magnitude')||1, rate: se.getAttribute('rate')||0,
+      disabled:false
     });
   });
 
@@ -2567,7 +2900,7 @@ function importModelXML(xmlText){
       mode: oe.getAttribute('mode')||'transfer', magnitude: oe.getAttribute('magnitude')||1,
       direction: oe.getAttribute('direction')||'old', mixratio: oe.getAttribute('mixratio')||0.5,
       crumbs: (oe.getAttribute('crumbs')||'False').toLowerCase()==='true',
-      rate: oe.getAttribute('rate')||0, showAdvanced:false, criteria, conditions: parseConditionsEl(oe, criteria.length),
+      rate: oe.getAttribute('rate')||0, showAdvanced:false, disabled:false, criteria, conditions: parseConditionsEl(oe, criteria.length),
       packageOut:'', packageMass:'', sortNode:''
     };
     if(instrEl){
@@ -2580,14 +2913,36 @@ function importModelXML(xmlText){
 
   // actions (inside <universe>)
   const universeEl = root.querySelector(':scope > universe');
-  let uCores='1', uStepSize='1', uStepUnit='a';
+  let uCores='1', uStepSize='1', uStepUnit='a', uSolver='cram16';
   if(universeEl){
     uCores = universeEl.getAttribute('num_of_cores') || '1';
     uStepSize = universeEl.getAttribute('step_size') || '1';
     uStepUnit = universeEl.getAttribute('step_unit') || 'a';
+    uSolver = universeEl.getAttribute('solver') || 'cram16';
+    // The universe element's own direct text (before its first child <action>) is a shared
+    // include-list across nodes/orders/sources -- mirrors ElementTree's .text (only text before
+    // the first child element), not the DOM's textContent (which would also pick up whitespace
+    // between <action> tags).
+    let uLabelText = '';
+    if(universeEl.firstChild && universeEl.firstChild.nodeType === 3){
+      uLabelText = universeEl.firstChild.textContent.trim();
+    }
+    if(uLabelText){
+      const activeLabelSet = new Set(uLabelText.split(/\s+/).filter(Boolean));
+      newOrders.forEach(o=>{ o.disabled = !activeLabelSet.has(o.label); });
+      newSources.forEach(s=>{ s.disabled = !activeLabelSet.has(s.label); });
+    }
     universeEl.querySelectorAll(':scope > action').forEach(ae=>{
       if(ae.hasAttribute('progress_time')){
         newActions.push({id:nid(), type:'progress_time', steps: ae.getAttribute('progress_time')});
+      } else if(ae.hasAttribute('add_order')){
+        newActions.push({id:nid(), type:'add_order', orderLabel: ae.getAttribute('add_order')});
+      } else if(ae.hasAttribute('remove_order')){
+        newActions.push({id:nid(), type:'remove_order', orderLabel: ae.getAttribute('remove_order')});
+      } else if(ae.hasAttribute('add_source')){
+        newActions.push({id:nid(), type:'add_source', sourceLabel: ae.getAttribute('add_source')});
+      } else if(ae.hasAttribute('remove_source')){
+        newActions.push({id:nid(), type:'remove_source', sourceLabel: ae.getAttribute('remove_source')});
       } else if(ae.hasAttribute('save_state')){
         newActions.push({id:nid(), type:'save_state', filename: ae.getAttribute('save_state')});
       } else if(ae.hasAttribute('save_results')){
@@ -2632,39 +2987,43 @@ function importModelXML(xmlText){
   // commit
   packages = newPackages; nodes = newNodes; sources = newSources; orders = newOrders; actions = newActions;
   networkViewport = null; networkViewportLocked = false; networkGroups = []; networkSelection = null;
-  const stepsizeEl = document.getElementById('u-stepsize'), stepunitEl = document.getElementById('u-stepunit'), coresEl = document.getElementById('u-cores');
-  if(stepsizeEl) stepsizeEl.value = uStepSize;
-  if(stepunitEl) stepunitEl.value = uStepUnit;
-  if(coresEl) coresEl.value = uCores;
+  universeSettings.stepsize = uStepSize;
+  universeSettings.stepunit = uStepUnit;
+  universeSettings.cores = uCores;
+  universeSettings.solver = uSolver;
+  renderUniverseSettings();
 
   renderPackages(); renderNodes(); renderSources(); renderOrders(); renderActions();
   return { packages: newPackages.length, nodes: newNodes.length, sources: newSources.length, orders: newOrders.length, actions: newActions.length };
 }
-document.getElementById('xml-load-input').addEventListener('change', e=>{
-  const file = e.target.files[0];
-  if(!file) return;
-  const statusEl = document.getElementById('xml-load-status');
-  statusEl.textContent = `Loading ${file.name}...`;
-  const reader = new FileReader();
-  reader.onload = ev=>{
-    try{
-      const counts = importModelXML(ev.target.result);
-      document.getElementById('xml-filename').value = file.name;
-      statusEl.textContent = `Loaded ${file.name}: ${counts.packages} packages, ${counts.nodes} nodes, ${counts.sources} sources, ${counts.orders} orders, ${counts.actions} actions. Advanced per-nuclide criteria filters are guessed from the saved values — double-check those.`;
-    }catch(err){
-      statusEl.textContent = `Could not load ${file.name}: ${err.message}`;
-    }
-  };
-  reader.readAsText(file);
-  document.getElementById('xml-load-input').value = '';
-});
-
-document.getElementById('u-stepsize').addEventListener('input', buildXML);
-document.getElementById('u-stepunit').addEventListener('change', buildXML);
-document.getElementById('u-cores').addEventListener('input', buildXML);
-document.getElementById('u-refdate').addEventListener('change', ()=>{ renderPackages(); });
+function handleXmlFileLoad(inputId){
+  const input = document.getElementById(inputId);
+  if(!input) return;
+  input.addEventListener('change', e=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const statusEl = document.getElementById('xml-load-status-network');
+    const setStatus = txt => { if(statusEl) statusEl.textContent = txt; };
+    setStatus(`Loading ${file.name}...`);
+    const reader = new FileReader();
+    reader.onload = ev=>{
+      try{
+        const counts = importModelXML(ev.target.result);
+        const nameEl = document.getElementById('xml-filename-network');
+        if(nameEl) nameEl.value = file.name;
+        setStatus(`Loaded ${file.name}: ${counts.packages} packages, ${counts.nodes} nodes, ${counts.sources} sources, ${counts.orders} orders, ${counts.actions} actions. Advanced per-nuclide criteria filters are guessed from the saved values — double-check those.`);
+      }catch(err){
+        setStatus(`Could not load ${file.name}: ${err.message}`);
+      }
+    };
+    reader.readAsText(file);
+    input.value = '';
+  });
+}
+handleXmlFileLoad('xml-load-input-network');
 
 // clean slate — nothing pre-added; this just renders the empty state for every section
+renderUniverseSettings();
 renderPackages();
 
 /* ===================== VISUALIZER ===================== */
@@ -2945,12 +3304,13 @@ function renderNetworkDiagram(){
     const homeBox = pos[nodeIdByLabel(o.homenode)];
     if(!homeBox) return;
     const isSel = sel && sel.type==='order' && sel.id===o.id;
+    const orderColor = o.disabled ? cTextFaint : cAmber;
     (o.ordernodes||[]).forEach(onlbl=>{
       const fromBox = pos[nodeIdByLabel(onlbl)];
       if(!fromBox || fromBox===homeBox) return;
       const p1 = rectEdgePoint(fromBox, homeBox.x+homeBox.w/2, homeBox.y+homeBox.h/2);
       const p2 = rectEdgePoint(homeBox, fromBox.x+fromBox.w/2, fromBox.y+fromBox.h/2);
-      svg += `<line class="order-hit" data-order-id="${o.id}" x1="${p1.x.toFixed(1)}" y1="${p1.y.toFixed(1)}" x2="${p2.x.toFixed(1)}" y2="${p2.y.toFixed(1)}" stroke="${cAmber}" stroke-width="${isSel?4:2}" marker-end="url(#arrow-order)"><title>${esc(o.label)} [${esc(o.mode)}]\nmagnitude ${esc(o.magnitude)}, direction ${esc(o.direction)}\ncriteria: ${esc(orderCriteriaSummary(o))}</title></line>`;
+      svg += `<line class="order-hit" data-order-id="${o.id}" x1="${p1.x.toFixed(1)}" y1="${p1.y.toFixed(1)}" x2="${p2.x.toFixed(1)}" y2="${p2.y.toFixed(1)}" stroke="${orderColor}" stroke-width="${isSel?4:2}" ${o.disabled?'stroke-dasharray="2,3"':''} marker-end="url(#arrow-order)" opacity="${o.disabled?0.6:1}"><title>${esc(o.label)}${o.disabled?' (disabled — excluded from the simulation)':''} [${esc(o.mode)}]\nmagnitude ${esc(o.magnitude)}, direction ${esc(o.direction)}\ncriteria: ${esc(orderCriteriaSummary(o))}</title></line>`;
     });
     if(o.remaindernode){
       const remBox = pos[nodeIdByLabel(o.remaindernode)];
@@ -2960,7 +3320,7 @@ function renderNetworkDiagram(){
           if(!fromBox || fromBox===remBox) return;
           const p1 = rectEdgePoint(fromBox, remBox.x+remBox.w/2, remBox.y+remBox.h/2);
           const p2 = rectEdgePoint(remBox, fromBox.x+fromBox.w/2, fromBox.y+fromBox.h/2);
-          svg += `<line class="order-hit" data-order-id="${o.id}" x1="${p1.x.toFixed(1)}" y1="${p1.y.toFixed(1)}" x2="${p2.x.toFixed(1)}" y2="${p2.y.toFixed(1)}" stroke="${cDanger}" stroke-width="1.5" stroke-dasharray="5,4" marker-end="url(#arrow-remainder)"><title>${esc(o.label)} remainder path\n(packages not meeting criteria)</title></line>`;
+          svg += `<line class="order-hit" data-order-id="${o.id}" x1="${p1.x.toFixed(1)}" y1="${p1.y.toFixed(1)}" x2="${p2.x.toFixed(1)}" y2="${p2.y.toFixed(1)}" stroke="${cDanger}" stroke-width="1.5" stroke-dasharray="5,4" marker-end="url(#arrow-remainder)" opacity="${o.disabled?0.5:1}"><title>${esc(o.label)} remainder path\n(packages not meeting criteria)</title></line>`;
         });
       }
     }
@@ -2971,15 +3331,16 @@ function renderNetworkDiagram(){
     const homeBox = pos[nodeIdByLabel(o.homenode)];
     if(!homeBox) return;
     const isSel = sel && sel.type==='order' && sel.id===o.id;
+    const orderColor = o.disabled ? cTextFaint : cAmber;
     (o.ordernodes||[]).forEach(onlbl=>{
       const fromBox = pos[nodeIdByLabel(onlbl)];
       if(!fromBox || fromBox===homeBox) return;
       const mx = ((homeBox.x+homeBox.w/2) + (fromBox.x+fromBox.w/2))/2;
       const my = ((homeBox.y+homeBox.h/2) + (fromBox.y+fromBox.h/2))/2;
-      const labelWithMag = `${o.label} \u00d7${o.magnitude}`;
+      const labelWithMag = `${o.label} \u00d7${o.magnitude}${o.disabled?' (off)':''}`;
       // halo text: a thick background-colored stroke painted behind the fill, so it only "cuts"
       // around the glyph shapes instead of slicing the arrow with a hard rectangle.
-      svg += `<text class="order-hit" data-order-id="${o.id}" x="${mx.toFixed(1)}" y="${(my-4).toFixed(1)}" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" font-weight="600" paint-order="stroke" stroke="${cPanel}" stroke-width="5" stroke-linejoin="round" fill="${isSel?cText:cAmber}">${esc(labelWithMag)}</text>`;
+      svg += `<text class="order-hit" data-order-id="${o.id}" x="${mx.toFixed(1)}" y="${(my-4).toFixed(1)}" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" font-weight="600" paint-order="stroke" stroke="${cPanel}" stroke-width="5" stroke-linejoin="round" fill="${isSel?cText:orderColor}">${esc(labelWithMag)}</text>`;
       if(isSel){
         const underlineW = labelWithMag.length*5.6;
         svg += `<rect x="${(mx-underlineW/2).toFixed(1)}" y="${(my-1).toFixed(1)}" width="${underlineW.toFixed(1)}" height="2" rx="1" fill="${cAmber}" style="pointer-events:none;"/>`;
@@ -2996,15 +3357,16 @@ function renderNetworkDiagram(){
     const toBox = pos[nodeIdByLabel(s.awaynode)];
     if(!toBox) return;
     const isSel = sel && sel.type==='source' && sel.id===s.id;
+    const sourceColor = s.disabled ? cTextFaint : cOk;
     const idxAmongSameNode = (sourcesByNode[s.awaynode]||[]).indexOf(s);
     const def = defaultSourceOffset(idxAmongSameNode);
     const pipX = toBox.x + (s.sdx ?? def.dx), pipY = toBox.y + (s.sdy ?? def.dy);
     const edge = rectEdgePoint(toBox, pipX, pipY);
-    svg += `<line x1="${pipX.toFixed(1)}" y1="${pipY.toFixed(1)}" x2="${edge.x.toFixed(1)}" y2="${edge.y.toFixed(1)}" stroke="${cOk}" stroke-width="1.5" marker-end="url(#arrow-source)" style="pointer-events:none;"/>`;
-    svg += `<circle class="source-hit" data-source-id="${s.id}" cx="${pipX.toFixed(1)}" cy="${pipY.toFixed(1)}" r="${isSel?8:5}" fill="${cOk}" ${isSel?`stroke="${cAmber}" stroke-width="2"`:''}><title>Source ${esc(s.label)}\ndrag to reposition\npackage: ${esc(s.package)}, magnitude ${esc(s.magnitude)}, every ${esc(s.rate)} step(s)</title></circle>`;
-    const labelText = `${s.package||'(no package)'} \u00d7${s.magnitude}`;
+    svg += `<line x1="${pipX.toFixed(1)}" y1="${pipY.toFixed(1)}" x2="${edge.x.toFixed(1)}" y2="${edge.y.toFixed(1)}" stroke="${sourceColor}" stroke-width="1.5" ${s.disabled?'stroke-dasharray="2,3"':''} marker-end="url(#arrow-source)" style="pointer-events:none;" opacity="${s.disabled?0.6:1}"/>`;
+    svg += `<circle class="source-hit" data-source-id="${s.id}" cx="${pipX.toFixed(1)}" cy="${pipY.toFixed(1)}" r="${isSel?8:5}" fill="${sourceColor}" opacity="${s.disabled?0.6:1}" ${isSel?`stroke="${cAmber}" stroke-width="2"`:''}><title>Source ${esc(s.label)}${s.disabled?' (disabled — excluded from the simulation)':''}\ndrag to reposition\npackage: ${esc(s.package)}, magnitude ${esc(s.magnitude)}, every ${esc(s.rate)} step(s)</title></circle>`;
+    const labelText = `${s.package||'(no package)'} \u00d7${s.magnitude}${s.disabled?' (off)':''}`;
     const labelSide = pipX < toBox.x ? -1 : 1; // keep text from overlapping the node box
-    svg += `<text class="source-hit" data-source-id="${s.id}" x="${(pipX+labelSide*9).toFixed(1)}" y="${(pipY+3).toFixed(1)}" text-anchor="${labelSide<0?'end':'start'}" font-family="IBM Plex Mono" font-size="9" font-weight="600" paint-order="stroke" stroke="${cPanel}" stroke-width="4" stroke-linejoin="round" fill="${isSel?cText:cOk}">${esc(labelText)}</text>`;
+    svg += `<text class="source-hit" data-source-id="${s.id}" x="${(pipX+labelSide*9).toFixed(1)}" y="${(pipY+3).toFixed(1)}" text-anchor="${labelSide<0?'end':'start'}" font-family="IBM Plex Mono" font-size="9" font-weight="600" paint-order="stroke" stroke="${cPanel}" stroke-width="4" stroke-linejoin="round" fill="${isSel?cText:sourceColor}">${esc(labelText)}</text>`;
   });
 
   // temporary line while dragging a new connection
@@ -3252,6 +3614,16 @@ document.addEventListener('pointerup', e=>{
     }
   }
 });
+function networkAddOrder(){
+  const o = {id:nid(), label:'Order'+(orders.length+1), homenode:'', remaindernode:'', ordernodes:[],
+    mode:'transfer', magnitude:1, direction:'old', mixratio:0.5, crumbs:false, rate:0, showAdvanced:false,
+    criteria:[], conditions:[], packageOut:'', packageMass:'', sortNode:''};
+  orders.push(o);
+  networkSelection = {type:'order', id:o.id};
+  renderOrders();
+  renderNetworkDiagram();
+  renderNetworkInspector();
+}
 function networkAddGroup(){
   const cx = networkViewport ? networkViewport.x + networkViewport.w/2 : 300;
   const cy = networkViewport ? networkViewport.y + networkViewport.h/2 : 200;
@@ -3294,7 +3666,7 @@ function networkZoomReset(){
   renderNetworkDiagram();
 }
 function networkAddNode(){
-  addNode(); // already renders the Build tab list, which cascades to buildXML -> renderNetworkDiagram
+  addNode(); // cascades to buildXML -> renderNetworkDiagram
   selectNetworkElement('node', nodes[nodes.length-1].id);
 }
 function createOrderBetween(fromNodeId, toNodeId){
@@ -3302,11 +3674,11 @@ function createOrderBetween(fromNodeId, toNodeId){
   const toNode = nodes.find(n=>n.id===toNodeId);
   if(!fromNode || !toNode) return;
   const o = {id:nid(), label:'Order'+(orders.length+1), homenode:toNode.label, remaindernode:'', ordernodes:[fromNode.label],
-    mode:'transfer', magnitude:1, direction:'old', mixratio:0.5, crumbs:false, rate:0, showAdvanced:false,
+    mode:'transfer', magnitude:1, direction:'old', mixratio:0.5, crumbs:false, rate:0, showAdvanced:false, disabled:false,
     criteria:[], conditions:[], packageOut:'', packageMass:'', sortNode:''};
   orders.push(o);
   networkSelection = {type:'order', id:o.id};
-  renderOrders(); // refreshes the Build tab list too; also cascades to buildXML, but that only
+  renderOrders(); // also cascades to buildXML, but that only
                    // schedules a deferred diagram redraw (for coalescing rapid-fire changes) --
                    // this is a discrete one-shot action, so render the diagram synchronously here.
   renderNetworkDiagram();
@@ -3317,23 +3689,11 @@ function selectNetworkElement(type, id){
   renderNetworkInspector();
   renderNetworkDiagram();
 }
-function jumpToBuildTab(kind, id){
-  const formBtn = document.querySelector('#view-build .subtab-btn[data-bsub="form"]');
-  if(formBtn) formBtn.click();
-  setTimeout(()=>{
-    const el = document.getElementById(`${kind}card-${id}`);
-    if(el){
-      if(typeof el.scrollIntoView === 'function') el.scrollIntoView({behavior:'smooth', block:'center'});
-      el.classList.add('flash-highlight');
-      setTimeout(()=>el.classList.remove('flash-highlight'), 1100);
-    }
-  }, 60);
-}
 function renderNetworkInspector(){
   const el = document.getElementById('network-inspector');
   if(!el) return;
   if(!networkSelection){
-    el.innerHTML = '<p class="empty-hint" style="margin:0;">Nothing selected. Click a node, order, or source in the diagram above to edit it &mdash; every field is available here, same as the Build tab.</p>';
+    el.innerHTML = '<p class="empty-hint" style="margin:0;">Nothing selected. Click a node, order, or source in the diagram above to edit it &mdash; every field is available here.</p>';
     updateNetworkAddSourceButton();
     return;
   }
@@ -3343,28 +3703,19 @@ function renderNetworkInspector(){
     if(!n){ networkSelection = null; el.innerHTML=''; updateNetworkAddSourceButton(); return; }
     el.innerHTML = `
       <div class="subblock-title">Editing node &mdash; ${esc(n.label)}</div>
-      ${nodeCardHtml(n)}
-      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
-        <button class="ghost small" onclick="jumpToBuildTab('node','${n.id}')">also visible in Form view &rarr;</button>
-      </div>`;
+      ${nodeCardHtml(n)}`;
   } else if(type==='order'){
     const o = orders.find(x=>x.id===id);
     if(!o){ networkSelection = null; el.innerHTML=''; updateNetworkAddSourceButton(); return; }
     el.innerHTML = `
       <div class="subblock-title">Editing order &mdash; ${esc(o.label)}</div>
-      ${orderCardHtml(o)}
-      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
-        <button class="ghost small" onclick="jumpToBuildTab('order','${o.id}')">also visible in Form view &rarr;</button>
-      </div>`;
+      ${orderCardHtml(o)}`;
   } else if(type==='source'){
     const s = sources.find(x=>x.id===id);
     if(!s){ networkSelection = null; el.innerHTML=''; updateNetworkAddSourceButton(); return; }
     el.innerHTML = `
       <div class="subblock-title">Editing source &mdash; ${esc(s.label)}</div>
-      ${sourceCardHtml(s)}
-      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
-        <button class="ghost small" onclick="jumpToBuildTab('source','${s.id}')">also visible in Form view &rarr;</button>
-      </div>`;
+      ${sourceCardHtml(s)}`;
   } else if(type==='group'){
     const g = networkGroups.find(x=>x.id===id);
     if(!g){ networkSelection = null; el.innerHTML=''; updateNetworkAddSourceButton(); return; }
@@ -3397,7 +3748,7 @@ function networkAddSourceToSelected(){
 function networkAddSourceTo(nodeId){
   const n = nodes.find(x=>x.id===nodeId);
   if(!n) return;
-  sources.push({id:nid(), label:'Source'+(sources.length+1), awaynode:n.label, package:'', magnitude:1, rate:0});
+  sources.push({id:nid(), label:'Source'+(sources.length+1), awaynode:n.label, package:'', magnitude:1, rate:0, disabled:false});
   selectNetworkElement('source', sources[sources.length-1].id);
   renderSources(); // cascades to buildXML -> renderNetworkDiagram
 }
