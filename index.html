@@ -204,6 +204,25 @@
     cursor:pointer;border-radius:4px;width:100%;
   }
   .action-insert-menu button:hover{background:var(--panel);color:var(--amber);}
+  .dist-wrap{position:relative;display:flex;align-items:center;}
+  .dist-wrap input{padding-right:24px !important;}
+  .dist-wrap.has-distribution input{border-color:var(--amber);box-shadow:inset 2px 0 0 var(--amber);}
+  .dist-icon{
+    position:absolute;right:4px;top:50%;transform:translateY(-50%);width:16px;height:16px;
+    display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-faint);
+    opacity:0;transition:opacity .12s,color .12s;border-radius:3px;
+  }
+  .dist-wrap:hover .dist-icon, .dist-wrap:focus-within .dist-icon, .dist-icon:focus{opacity:1;}
+  .dist-icon:hover, .dist-icon:focus{color:var(--amber);background:var(--panel);}
+  .dist-icon svg{width:12px;height:12px;}
+  .dist-popup{
+    position:fixed;z-index:9999;background:var(--panel-alt);border:1px solid var(--border);border-radius:var(--radius);
+    padding:12px;box-shadow:0 8px 24px rgba(0,0,0,.35);min-width:220px;
+  }
+  .dist-popup select{width:100%;margin-bottom:8px;}
+  .dist-popup .field-grid{gap:8px;margin-bottom:8px;}
+  .dist-popup .dist-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:4px;}
+  .dist-popup .dist-hint{font-family:var(--mono);font-size:10.5px;color:var(--text-faint);margin:-2px 0 8px 0;}
   .action-menu-group-toggle{display:flex;align-items:center;justify-content:space-between;gap:8px;}
   .action-menu-chevron{font-size:8px;color:var(--text-faint);flex-shrink:0;}
   .action-menu-group-children{padding-left:14px;border-left:1px solid var(--border-soft);margin:2px 0 2px 12px;display:flex;flex-direction:column;gap:2px;}
@@ -222,6 +241,9 @@
     padding:7px 8px;border-radius:2px;font-family:var(--sans);font-size:13px;width:100%;
   }
   .field input:focus, .field select:focus, textarea:focus{outline:1px solid var(--amber);border-color:var(--amber);}
+  .field input[type=range]{width:100%;accent-color:var(--amber);height:4px;}
+  .field .range-row{display:flex;align-items:center;gap:10px;}
+  .field .range-row .range-value{font-family:var(--mono);font-size:11px;color:var(--text-dim);white-space:nowrap;min-width:64px;text-align:right;}
   .field.checkbox{flex-direction:row;align-items:center;gap:7px;}
   .field.checkbox label{text-transform:none;font-size:12.5px;color:var(--text);}
   .field.span2{grid-column:span 2;}
@@ -316,6 +338,12 @@
   }
   .subtab-btn.active{color:var(--amber);border-bottom-color:var(--amber);}
   .subtab-btn:hover:not(.active){color:var(--text);}
+  .mc-view-btn{
+    font-family:var(--mono);font-size:12px;background:none;border:none;color:var(--text-dim);
+    padding:9px 4px;margin-right:14px;cursor:pointer;border-bottom:2px solid transparent;
+  }
+  .mc-view-btn.active{color:var(--amber);border-bottom-color:var(--amber);}
+  .mc-view-btn:hover:not(.active){color:var(--text);}
   .subview{display:none;}
   .subview.active{display:block;}
   #network-diagram{overflow:hidden;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--panel);padding:10px;height:520px;min-height:240px;max-height:90vh;resize:vertical;}
@@ -968,6 +996,11 @@
             <div id="universe-settings-network"></div>
           </div>
 
+          <div class="subblock" id="mc-settings-block" style="display:none;">
+            <div class="subblock-title">Monte Carlo <span class="help-bubble" tabindex="0">?<span class="tip">Appears automatically once any field in the model is set to a distribution instead of a fixed value. Runs the model many times, sampling fresh values each trial, and saves each trial's results as its own file rather than one aggregated file.</span></span></div>
+            <div id="mc-settings-fields"></div>
+          </div>
+
           <div class="subblock">
             <div class="subblock-title">Action sequence <span class="help-bubble" tabindex="0">?<span class="tip">Runs top to bottom. Drag the handle to reorder. Use add_order/remove_order or add_source/remove_source to switch something on or off partway through — e.g. progress_time 10, remove_order, progress_time 10 more.</span></span></div>
             <div id="network-actions-list" class="rows"></div>
@@ -997,7 +1030,7 @@
   <!-- ============ VISUALIZE VIEW ============ -->
   <div class="view" id="view-visualize">
     <div class="subtabs">
-      <button class="subtab-btn active" data-vsub="results">Results (.xlsx)</button>
+      <button class="subtab-btn active" data-vsub="results">Results (.json)</button>
       <button class="subtab-btn" data-vsub="state">State snapshot (.xml)</button>
     </div>
 
@@ -1007,23 +1040,104 @@
         <div class="chain" style="justify-content:center;">
           <span class="node"></span><span class="arm"></span><span class="node small"></span><span class="arm"></span><span class="node small"></span><span class="arm"></span><span class="node small"></span>
         </div>
-        <p>Drop the <strong>.xlsx</strong> file your <code>save_results</code> action produced, or click to browse.</p>
+        <p>Drop the <strong>.json</strong> file your <code>save_results</code> action produced, or the combined <code>mc_aggregated.json</code> a Monte Carlo run wrote automatically &mdash; or click to browse.</p>
         <p class="fname" id="dz-filename"></p>
-        <input type="file" id="fileInput" accept=".xlsx,.xls">
+        <input type="file" id="fileInput" accept=".json">
+      </div>
+
+      <div id="mc-results-body" style="display:none;">
+        <p class="empty-hint" style="margin-top:0;">Aggregated Monte Carlo results detected &mdash; run_monte_carlo writes one combined file covering everything the model produced, so all the views below come from the single file you just loaded.</p>
+
+        <div class="field" id="mc-trial-limit-row" style="max-width:420px;margin-bottom:14px;display:none;">
+          <label>Trials shown <span class="help-bubble" tabindex="0">?<span class="tip">Limits every chart below (distributions, comparison, and time series) to the first N trials in the file &mdash; handy for previewing a large Monte Carlo run without rendering every trial.</span></span></label>
+          <div class="range-row">
+            <input type="range" id="mc-trial-limit" min="1" max="1" value="1" step="1" oninput="onMcTrialLimitChange()">
+            <span class="range-value" id="mc-trial-limit-label"></span>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+          <button class="mc-view-btn active" id="mc-view-pernode-btn" onclick="setMonteCarloView('pernode')">Per-node distributions</button>
+          <button class="mc-view-btn" id="mc-view-compare-btn" onclick="setMonteCarloView('compare')">Compare across nodes</button>
+          <button class="mc-view-btn" id="mc-view-timeseries-btn" style="display:none;" onclick="setMonteCarloView('timeseries')">Time series</button>
+        </div>
+
+        <div id="mc-pernode-view">
+          <div class="field" style="max-width:320px;margin-bottom:14px;">
+            <label>Node <span class="help-bubble" tabindex="0">?<span class="tip">Distribution of results at this node across every Monte Carlo trial.</span></span></label>
+            <select id="mc-node-select" onchange="renderMonteCarloDistributions()"></select>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;">
+            <div class="subblock" style="margin-top:0;padding-top:0;border-top:none;">
+              <div class="subblock-title">Package count</div>
+              <p class="empty-hint" id="mc-stats-package_count" style="margin-top:0;"></p>
+              <canvas id="mc-chart-package_count" height="140"></canvas>
+            </div>
+            <div class="subblock" style="margin-top:0;padding-top:0;border-top:none;">
+              <div class="subblock-title">Mass</div>
+              <p class="empty-hint" id="mc-stats-mass" style="margin-top:0;"></p>
+              <canvas id="mc-chart-mass" height="140"></canvas>
+            </div>
+            <div class="subblock" style="margin-top:0;padding-top:0;border-top:none;">
+              <div class="subblock-title">Volume</div>
+              <p class="empty-hint" id="mc-stats-volume" style="margin-top:0;"></p>
+              <canvas id="mc-chart-volume" height="140"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div id="mc-compare-view" style="display:none;">
+          <div class="field" style="max-width:320px;margin-bottom:14px;">
+            <label>Variable <span class="help-bubble" tabindex="0">?<span class="tip">Dark dot is the mean at each node; the shaded bands behind it are &plusmn;1, &plusmn;2, and &plusmn;3 standard deviations. Faint dots are every individual trial's value, plotted directly at the node's position &mdash; any spread you see is the real deviation, not a rendering effect.</span></span></label>
+            <select id="mc-compare-variable-select" onchange="renderMonteCarloComparison()">
+              <option value="package_count">Package count</option>
+              <option value="mass">Mass</option>
+              <option value="volume">Volume</option>
+            </select>
+          </div>
+          <div class="chart-wrap"><canvas id="mc-compare-chart" height="90"></canvas></div>
+        </div>
+
+        <div id="mc-timeseries-view" style="display:none;">
+          <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
+            <div class="field" style="max-width:220px;">
+              <label>Variable</label>
+              <select id="mc-ts-variable-select" onchange="onMcTsVariableChange()"></select>
+            </div>
+            <div class="field" style="max-width:220px;">
+              <label>Series (node/package)</label>
+              <select id="mc-ts-series-select" onchange="onMcTsSeriesChange()"></select>
+            </div>
+            <div class="field" id="mc-ts-nuclide-row" style="max-width:220px;display:none;">
+              <label>Nuclide</label>
+              <select id="mc-ts-nuclide-select" onchange="renderMonteCarloTimeSeries()"></select>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:14px;">
+            <button class="mc-view-btn active" id="mc-ts-mode-alltrials-btn" onclick="setMcTimeSeriesMode('alltrials')">All trials</button>
+            <button class="mc-view-btn" id="mc-ts-mode-aggregated-btn" onclick="setMcTimeSeriesMode('aggregated')">Aggregated (mean &plusmn; band)</button>
+          </div>
+          <p class="empty-hint" style="margin-top:0;" id="mc-ts-hint">Every trial plotted faintly &mdash; hover a line to bring it forward. Where many trials agree, the overlapping lines build up into a visibly darker "trend zone".</p>
+          <div class="chart-wrap"><canvas id="mc-ts-chart" height="90"></canvas></div>
+        </div>
       </div>
 
       <div id="viz-body" style="display:none;">
         <div class="viz-controls">
           <div class="field">
-            <label>Sheet <span class="help-bubble" tabindex="0">?<span class="tip">Each sheet in the workbook is one variable — mass, activity, etc — reported over time.</span></span></label>
-            <select id="sheet-select"></select>
+            <label>Variable <span class="help-bubble" tabindex="0">?<span class="tip">mass, activity, etc — reported over time.</span></span></label>
+            <select id="sheet-select" onchange="renderSheet()"></select>
+          </div>
+          <div class="field" id="nuclide-select-row" style="display:none;">
+            <label>Nuclide <span class="help-bubble" tabindex="0">?<span class="tip">This variable is reported per nuclide — pick which one to plot across nodes/packages.</span></span></label>
+            <select id="nuclide-select" onchange="renderSheet()"></select>
           </div>
           <div class="field">
             <label>Chart type</label>
             <select id="chart-type"><option value="line">Line</option><option value="bar">Bar</option></select>
           </div>
         </div>
-        <div class="field" style="margin-bottom:6px;"><label>Series <span class="help-bubble" tabindex="0">?<span class="tip">Tick which node/package columns from this sheet to plot and include in the snapshot below.</span></span></label></div>
+        <div class="field" style="margin-bottom:6px;"><label>Series <span class="help-bubble" tabindex="0">?<span class="tip">Tick which node/package series to plot and include in the snapshot below.</span></span></label></div>
         <div class="series-list" id="series-list"></div>
 
         <div class="chart-wrap"><canvas id="chart" height="90"></canvas></div>
@@ -1149,12 +1263,193 @@ let networkRenderScheduled = false;
 let networkViewport = null; // {x, y, w, h}
 let networkViewportLocked = false;
 let networkGroups = []; // {id, x, y, w, h, label, color}
-let universeSettings = { stepsize:'1', stepunit:'a', cores:'1', refdate:'', solver:'cram16', showAdvanced:false };
+let universeSettings = { stepsize:'1', stepunit:'a', cores:'1', refdate:'', solver:'cram16', showAdvanced:false, mcTrials:'100', mcSampling:'random', mcSeed:'' };
 
 /* ===================== helpers ===================== */
 function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function help(text){
   return `<span class="help-bubble" tabindex="0">?<span class="tip">${esc(text)}</span></span>`;
+}
+
+/* ===================== DISTRIBUTIONS ===================== */
+// Any numeric field in the model (nuclide values, mass/volume, magnitudes, thresholds, etc.) can
+// hold either a plain number or a distribution written as "type(params)" -- e.g. normal(1e10, 1e9).
+// This is intentionally just a string in the same slot the number already occupied: nothing about
+// the surrounding field, its update function, or the XML round-trip needs to know the difference.
+const DISTRIBUTION_TYPES = {
+  normal:     { label: 'Normal',     params: [{key:'mean', label:'Mean'}, {key:'std', label:'Std. dev.'}] },
+  uniform:    { label: 'Uniform',    params: [{key:'low', label:'Low'}, {key:'high', label:'High'}] },
+  lognormal:  { label: 'Log-normal', params: [{key:'mu', label:'Mu (log-mean)'}, {key:'sigma', label:'Sigma (log-std)'}] },
+  triangular: { label: 'Triangular', params: [{key:'low', label:'Low'}, {key:'mode', label:'Mode'}, {key:'high', label:'High'}] }
+};
+function parseDistributionString(str){
+  const m = String(str??'').trim().match(/^([a-zA-Z_]+)\s*\(([^)]*)\)\s*$/);
+  if(!m) return null;
+  const type = m[1].toLowerCase();
+  if(!DISTRIBUTION_TYPES[type]) return null;
+  const parts = m[2].split(',').map(s=>s.trim());
+  const def = DISTRIBUTION_TYPES[type];
+  if(parts.length !== def.params.length) return null;
+  const params = {};
+  for(let i=0;i<def.params.length;i++){
+    const n = parseFloat(parts[i]);
+    if(isNaN(n)) return null;
+    params[def.params[i].key] = n;
+  }
+  return { type, params };
+}
+function isDistributionString(str){ return parseDistributionString(str) !== null; }
+function compactValueDisplay(val){
+  const d = parseDistributionString(val);
+  return d ? `~${d.type}` : val;
+}
+function formatDistributionString(type, params){
+  const def = DISTRIBUTION_TYPES[type];
+  return `${type}(${def.params.map(p=>params[p.key]).join(', ')})`;
+}
+// Generic wrapper for any numeric field: takes the exact same pieces a plain <input> would (value,
+// oninput/onblur handler strings, placeholder), and adds the small dice icon + distribution-active
+// cue around it. The icon doesn't need to know which specific update function the field uses --
+// it just writes into the input and re-fires whatever oninput/onblur are already wired there.
+function distField(value, oninputExpr, onblurExpr, opts){
+  opts = opts || {};
+  const isDist = isDistributionString(value);
+  const inputId = opts.id || ('df' + nid());
+  return `<div class="dist-wrap ${isDist?'has-distribution':''}">
+    <input type="text" inputmode="decimal" id="${inputId}" ${opts.placeholder?`placeholder="${esc(opts.placeholder)}"`:''} value="${esc(value)}"
+      oninput="${oninputExpr}" ${onblurExpr?`onblur="${onblurExpr}"`:''}>
+    <span class="dist-icon" tabindex="0" title="fixed value or distribution" onclick="showDistributionPopup(event,'${inputId}')">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2" width="12" height="12" rx="2.5"/><circle cx="5.5" cy="5.5" r="1" fill="currentColor" stroke="none"/><circle cx="10.5" cy="5.5" r="1" fill="currentColor" stroke="none"/><circle cx="8" cy="8" r="1" fill="currentColor" stroke="none"/><circle cx="5.5" cy="10.5" r="1" fill="currentColor" stroke="none"/><circle cx="10.5" cy="10.5" r="1" fill="currentColor" stroke="none"/></svg>
+    </span>
+  </div>`;
+}
+function closeDistributionPopup(){
+  const el = document.getElementById('dist-popup');
+  if(el) el.remove();
+}
+function distributionParamsHtml(type, params){
+  const def = DISTRIBUTION_TYPES[type];
+  return def.params.map(p=>`
+    <div class="field"><label>${esc(p.label)}</label>
+      <input type="number" step="any" id="dist-param-${p.key}" value="${esc(params[p.key] ?? '')}">
+    </div>`).join('');
+}
+function showDistributionPopup(evt, inputId){
+  evt.stopPropagation();
+  closeDistributionPopup();
+  const input = document.getElementById(inputId);
+  if(!input) return;
+  const existing = parseDistributionString(input.value);
+  const initialType = existing ? existing.type : 'normal';
+  const initialParams = existing ? existing.params : {};
+
+  const popup = document.createElement('div');
+  popup.id = 'dist-popup';
+  popup.className = 'dist-popup';
+  popup.dataset.inputId = inputId;
+  popup.innerHTML = `
+    <select id="dist-type-select" onchange="renderDistributionParams(this.value)">
+      ${Object.keys(DISTRIBUTION_TYPES).map(t=>`<option value="${t}" ${t===initialType?'selected':''}>${DISTRIBUTION_TYPES[t].label}</option>`).join('')}
+    </select>
+    <p class="dist-hint">Replaces the fixed value with a sampled distribution for Monte Carlo runs.</p>
+    <div class="field-grid" id="dist-param-fields">${distributionParamsHtml(initialType, initialParams)}</div>
+    <div class="dist-actions">
+      ${existing ? '<button class="ghost small" onclick="clearDistributionField()">Use fixed value</button>' : ''}
+      <button class="ghost small" onclick="closeDistributionPopup()">Cancel</button>
+      <button class="primary" onclick="applyDistributionPopup()">Apply</button>
+    </div>`;
+  document.body.appendChild(popup);
+
+  const rect = evt.currentTarget.getBoundingClientRect();
+  const popRect = popup.getBoundingClientRect();
+  let left = Math.max(8, Math.min(rect.left, window.innerWidth - popRect.width - 8));
+  let top = rect.bottom + 6;
+  if(top + popRect.height > window.innerHeight - 8) top = rect.top - popRect.height - 6;
+  popup.style.left = left + 'px';
+  popup.style.top = top + 'px';
+}
+function renderDistributionParams(type){
+  const el = document.getElementById('dist-param-fields');
+  if(el) el.innerHTML = distributionParamsHtml(type, {});
+}
+function applyDistributionPopup(){
+  const popup = document.getElementById('dist-popup');
+  if(!popup) return;
+  const type = document.getElementById('dist-type-select').value;
+  const def = DISTRIBUTION_TYPES[type];
+  const params = {};
+  for(const p of def.params){
+    const el = document.getElementById(`dist-param-${p.key}`);
+    params[p.key] = el ? parseFloat(el.value) || 0 : 0;
+  }
+  const distString = formatDistributionString(type, params);
+  writeIntoField(popup.dataset.inputId, distString);
+  closeDistributionPopup();
+}
+function clearDistributionField(){
+  const popup = document.getElementById('dist-popup');
+  if(!popup) return;
+  writeIntoField(popup.dataset.inputId, '');
+  closeDistributionPopup();
+}
+// Writes a value into a field and re-fires whatever oninput/onblur handlers are already attached
+// to it, regardless of which specific update function they call -- this is what lets the popup
+// stay generic across every different field it might be attached to. Also updates the wrapper's
+// visual cue directly, since several update functions skip a full re-render for typing performance
+// and wouldn't otherwise refresh it immediately.
+function writeIntoField(inputId, value){
+  const input = document.getElementById(inputId);
+  if(!input) return;
+  input.value = value;
+  const wrap = input.closest('.dist-wrap');
+  if(wrap) wrap.classList.toggle('has-distribution', isDistributionString(value));
+  if(typeof input.oninput === 'function') input.oninput();
+  if(typeof input.onblur === 'function') input.onblur();
+}
+document.addEventListener('click', e=>{
+  const popup = document.getElementById('dist-popup');
+  if(popup && !popup.contains(e.target) && !e.target.closest('.dist-icon')) closeDistributionPopup();
+});
+
+/* ===================== MONTE CARLO ===================== */
+// Whether ANY distributable field anywhere in the model currently holds a distribution --
+// this is what gates whether the Monte Carlo settings panel appears at all. Kept as a plain
+// scan rather than tracked state, since it only runs when buildXML() already runs anyway.
+function modelHasAnyDistribution(){
+  const d = isDistributionString;
+  if(packages.some(p => d(p.mass) || d(p.volume) || (p.nuclides||[]).some(n=>d(n.value)))) return true;
+  if(sources.some(s => d(s.magnitude) || d(s.rate))) return true;
+  if(orders.some(o => d(o.magnitude) || d(o.mixratio) || d(o.rate) || d(o.packageMass) ||
+      (o.criteria||[]).some(c => d(c.value) || (c.filters||[]).some(f=>d(f.hlMagnitude)||d(f.tokenValue))))) return true;
+  if(actions.some(a => a.type==='organize_packages' && (a.criteria||[]).some(c=>d(c.value)))) return true;
+  return false;
+}
+function monteCarloSettingsHtml(loc){
+  return `
+    <div class="field-grid">
+      <div class="field"><label>Number of simulations <span class="help-bubble" tabindex="0">?<span class="tip">How many Monte Carlo trials to run. Each trial samples a fresh value from every distribution in the model and runs independently.</span></span></label>
+        <input type="number" min="1" id="mc-trials-${loc}" value="${esc(universeSettings.mcTrials)}" oninput="updateUniverseSettingSilent('mcTrials',this.value,'${loc}')" onblur="updateUniverseSetting('mcTrials',this.value)"></div>
+      <div class="field"><label>Sampling method <span class="help-bubble" tabindex="0">?<span class="tip">Latin Hypercube spreads samples more evenly across each distribution's range, giving better coverage with fewer trials than plain random sampling.</span></span></label>
+        <select id="mc-sampling-${loc}" onchange="updateUniverseSetting('mcSampling',this.value)">
+          <option value="random" ${universeSettings.mcSampling==='random'?'selected':''}>Random</option>
+          <option value="latin_hypercube" ${universeSettings.mcSampling==='latin_hypercube'?'selected':''}>Latin Hypercube</option>
+        </select>
+      </div>
+      <div class="field"><label>Random seed <span class="help-bubble" tabindex="0">?<span class="tip">Set this to make the same set of trials reproducible across runs. Leave blank for a different sample each time.</span></span></label>
+        <input type="number" id="mc-seed-${loc}" placeholder="random" value="${esc(universeSettings.mcSeed)}" oninput="updateUniverseSettingSilent('mcSeed',this.value,'${loc}')" onblur="updateUniverseSetting('mcSeed',this.value)"></div>
+    </div>`;
+}
+function renderMonteCarloSettings(){
+  const el = document.getElementById('mc-settings-fields');
+  if(el) el.innerHTML = monteCarloSettingsHtml('net');
+}
+function updateMonteCarloPanelVisibility(){
+  const block = document.getElementById('mc-settings-block');
+  if(!block) return;
+  const shouldShow = modelHasAnyDistribution();
+  const wasHidden = block.style.display === 'none';
+  block.style.display = shouldShow ? '' : 'none';
+  if(shouldShow && wasHidden) renderMonteCarloSettings();
 }
 // Tooltips are positioned in JS (not pure CSS :hover) so they can be clamped to the viewport --
 // a centered-above-the-icon tooltip clips off-screen for any bubble near the right edge, and a
@@ -1616,8 +1911,8 @@ function packageCardHtml(p, loc){
       <button class="remove" onclick="removePackage('${p.id}')">&times;</button>
       <div class="field-grid">
         <div class="field"><label>Label</label><input type="text" id="pkg-label-${loc}-${p.id}" value="${esc(p.label)}" onfocus="rememberLabelBeforeEdit('package','${p.id}',this.value)" oninput="updatePkgSilent('${p.id}','label',this.value,'${loc}')" onblur="updatePkg('${p.id}','label',this.value)"></div>
-        <div class="field"><label>Mass ${help('Total package mass. Required for activity_concentration mode, and for any activity_concentration/heat_concentration criteria that reference this package.')}</label><input type="number" step="any" value="${esc(p.mass)}" oninput="updatePkg('${p.id}','mass',this.value)"></div>
-        <div class="field"><label>Volume ${help('Total package volume. Needed for heat_concentration criteria and volume-based reporting.')}</label><input type="number" step="any" value="${esc(p.volume)}" oninput="updatePkg('${p.id}','volume',this.value)"></div>
+        <div class="field"><label>Mass ${help('Total package mass. Required for activity_concentration mode, and for any activity_concentration/heat_concentration criteria that reference this package.')}</label>${distField(p.mass, `updatePkg('${p.id}','mass',this.value)`, null, {id:`dist-mass-${p.id}`})}</div>
+        <div class="field"><label>Volume ${help('Total package volume. Needed for heat_concentration criteria and volume-based reporting.')}</label>${distField(p.volume, `updatePkg('${p.id}','volume',this.value)`, null, {id:`dist-volume-${p.id}`})}</div>
         <div class="field"><label>Mode ${help('How to interpret the nuclide values below: atoms = raw atom counts, activity = Bq, activity_concentration = Bq per unit mass (must match the Mass unit).')}</label>
           <select onchange="updatePkg('${p.id}','mode',this.value)">
             <option value="atoms" ${p.mode==='atoms'?'selected':''}>atoms</option>
@@ -1630,7 +1925,7 @@ function packageCardHtml(p, loc){
 
       <label class="advanced-toggle">
         <input type="checkbox" ${p.showAdvanced?'checked':''} onchange="updatePkg('${p.id}','showAdvanced',this.checked)">
-        Show extra options (measured-on date, radioactive, decay chain)
+        Show extra options (measured-on date, radioactive, decay chain, secular equilibrium)
       </label>
       ${p.showAdvanced ? `
       <div class="field-grid" style="margin-top:10px;">
@@ -1641,6 +1936,17 @@ function packageCardHtml(p, loc){
         </div>
         <div class="field checkbox"><input type="checkbox" id="rad-${loc}-${p.id}" ${p.radioactive?'checked':''} onchange="updatePkg('${p.id}','radioactive',this.checked)"><label for="rad-${loc}-${p.id}">radioactive</label>${help('Whether this package\'s nuclides decay over time at all. Turn off for genuinely non-radioactive/stable material.')}</div>
         <div class="field checkbox"><input type="checkbox" id="dc-${loc}-${p.id}" ${p.decay_chain?'checked':''} onchange="updatePkg('${p.id}','decay_chain',this.checked)"><label for="dc-${loc}-${p.id}">decay_chain</label>${help('Whether to track decay daughters (the chain of nuclides this one decays into), not just the parent nuclide\'s own decay.')}</div>
+        <div class="field span2">
+          <label>Secular equilibrium ${help('Assumes the listed nuclides are in secular equilibrium with their daughters (daughter decay rate = parent\'s production rate) — useful for long decay chains where every intermediate step would otherwise need its own explicit inventory value.')}</label>
+          <select onchange="updatePkgSecularMode('${p.id}', this.value)">
+            <option value="" ${(!p.secularEquilibrium && p.secularEquilibriumMode!=='specific')?'selected':''}>None</option>
+            <option value="all" ${p.secularEquilibrium==='all'?'selected':''}>All nuclides</option>
+            <option value="specific" ${(p.secularEquilibriumMode==='specific' || (p.secularEquilibrium && p.secularEquilibrium!=='all'))?'selected':''}>Specific nuclides</option>
+          </select>
+          ${(p.secularEquilibriumMode==='specific' || (p.secularEquilibrium && p.secularEquilibrium!=='all')) ? `
+          <input type="text" list="nuclide-suggestions" placeholder="e.g. Co60 Cs137" style="margin-top:6px;" value="${esc(p.secularEquilibrium)}"
+            oninput="updatePkgSilent('${p.id}','secularEquilibrium',this.value)" onblur="updatePkg('${p.id}','secularEquilibrium',this.value)">` : ''}
+        </div>
       </div>` : ''}
       <div class="subblock">
         <div class="subblock-title">Nuclide inventory</div>
@@ -1650,7 +1956,7 @@ function packageCardHtml(p, loc){
               <input type="text" list="nuclide-suggestions" placeholder="e.g. Co60, Co-60, Am242_m1 (metastable)..." value="${esc(n.name)}"
                 oninput="updateNuc('${p.id}',${i},'name',this.value)"
                 onblur="normalizeFieldOnBlur(this, v=>{updateNuc('${p.id}',${i},'name',v); renderActions();})">
-              <input type="number" step="any" placeholder="value" value="${esc(n.value)}" oninput="updateNuc('${p.id}',${i},'value',this.value)">
+              ${distField(n.value, `updateNuc('${p.id}',${i},'value',this.value)`, null, {placeholder:'value', id:`dist-nucval-${p.id}-${i}`})}
               <button class="rm" onclick="removeNuc('${p.id}',${i})">&times;</button>
             </div>`).join('')}
         </div>
@@ -1668,7 +1974,7 @@ function renderPackages(){
   buildXML();
 }
 function addPackage(){
-  const p = {id:nid(), label:'Package'+(packages.length+1), mass:'', volume:'', mode:'atoms', radioactive:true, decay_chain:true, packageDate:'', showAdvanced:false, nuclides:[{name:'',value:''}]};
+  const p = {id:nid(), label:'Package'+(packages.length+1), mass:'', volume:'', mode:'atoms', radioactive:true, decay_chain:true, packageDate:'', showAdvanced:false, secularEquilibrium:'', nuclides:[{name:'',value:''}]};
   packages.push(p);
   // Append just the new card instead of rebuilding every existing card -- rebuilding the whole
   // list on every add made creating N packages an O(N^2) operation, which is what made adding
@@ -1720,6 +2026,16 @@ function updatePkgSilent(id,key,val,sourceLoc){
     if(otherEl && document.activeElement!==otherEl) otherEl.value = val;
   }
   buildXML();
+}
+function updatePkgSecularMode(id, mode){
+  const p = packages.find(x=>x.id===id);
+  if(!p) return;
+  // Tracked separately from the stored value: an empty text box in "specific" mode must not
+  // look identical to "None" (both would otherwise just be an empty secularEquilibrium string).
+  p.secularEquilibriumMode = mode;
+  if(mode !== 'specific') p.secularEquilibrium = mode; // '' (none) or 'all'
+  else if(p.secularEquilibrium === 'all') p.secularEquilibrium = ''; // don't leak "all" into specific mode
+  renderPackages();
 }
 function addNuc(id){ packages.find(p=>p.id===id).nuclides.push({name:'',value:''}); renderPackages(); }
 function removeNuc(id,i){ packages.find(p=>p.id===id).nuclides.splice(i,1); renderPackages(); }
@@ -1984,8 +2300,8 @@ function sourceCardHtml(s){
         <div class="field"><label>Label</label><input type="text" value="${esc(s.label)}" onfocus="rememberLabelBeforeEdit('source','${s.id}',this.value)" oninput="updateSrcSilent('${s.id}','label',this.value)" onblur="updateSrc('${s.id}','label',this.value)"></div>
         <div class="field"><label>Away node ${help('Which node this source deposits new packages into.')}</label><select onchange="updateSrc('${s.id}','awaynode',this.value)"><option value=""></option>${nodeIdOptionList(s.awaynode)}</select></div>
         <div class="field"><label>Package ${help('The package template that gets copied into the away node each time this source fires.')}</label><select onchange="updateSrc('${s.id}','package',this.value)"><option value=""></option>${optionList(packageLabels(), s.package)}</select></div>
-        <div class="field"><label>Magnitude ${help('How many copies of the package are added each time this source fires.')}</label><input type="number" step="any" value="${esc(s.magnitude)}" oninput="updateSrc('${s.id}','magnitude',this.value)"></div>
-        <div class="field"><label>Rate (steps) ${help('How many simulation steps between firings. 0 = fires every step.')}</label><input type="number" value="${esc(s.rate)}" oninput="updateSrc('${s.id}','rate',this.value)"></div>
+        <div class="field"><label>Magnitude ${help('How many copies of the package are added each time this source fires.')}</label>${distField(s.magnitude, `updateSrc('${s.id}','magnitude',this.value)`, null, {id:`dist-srcmag-${s.id}`})}</div>
+        <div class="field"><label>Rate (steps) ${help('How many simulation steps between firings. 0 = fires every step.')}</label>${distField(s.rate, `updateSrc('${s.id}','rate',this.value)`, null, {id:`dist-srcrate-${s.id}`})}</div>
       </div>
     </div>`;
 }
@@ -2090,7 +2406,7 @@ function renderFilterRow(o,ci,c,f,fi){
           <option value="+" ${f.hlCompare==='+'?'selected':''}>over</option>
         </select>
       </div>
-      <div class="field narrow"><label>Amount</label><input type="number" step="any" value="${esc(f.hlMagnitude)}" oninput="updateFilterRowSilent('${o.id}',${ci},${fi},'hlMagnitude',this.value)"></div>
+      <div class="field narrow"><label>Amount</label>${distField(f.hlMagnitude, `updateFilterRowSilent('${o.id}',${ci},${fi},'hlMagnitude',this.value)`, null, {id:`dist-hlmag-${o.id}-${ci}-${fi}`})}</div>
       <div class="field narrow"><label>Unit</label>
         <select onchange="updateFilterRow('${o.id}',${ci},${fi},'hlUnit',this.value)">
           <option value="y" ${f.hlUnit==='y'?'selected':''}>years</option>
@@ -2103,7 +2419,7 @@ function renderFilterRow(o,ci,c,f,fi){
   return `
     <div class="filter-row">
       ${inner}
-      ${isMixVariable(c.variable) ? '' : `<div class="field narrow"><label>Threshold override ${help('Optional — use a different threshold for just this filter row instead of the criterion\'s shared threshold above.')}</label><input type="number" step="any" placeholder="uses shared" value="${esc(f.tokenValue)}" oninput="updateFilterRowSilent('${o.id}',${ci},${fi},'tokenValue',this.value)"></div>`}
+      ${isMixVariable(c.variable) ? '' : `<div class="field narrow"><label>Threshold override ${help('Optional — use a different threshold for just this filter row instead of the criterion\'s shared threshold above.')}</label>${distField(f.tokenValue, `updateFilterRowSilent('${o.id}',${ci},${fi},'tokenValue',this.value)`, null, {placeholder:'uses shared', id:`dist-tokenval-${o.id}-${ci}-${fi}`})}</div>`}
       <button class="rm" onclick="removeFilterRow('${o.id}',${ci},${fi})">&times;</button>
     </div>`;
 }
@@ -2127,7 +2443,7 @@ function orderCardHtml(o){
         </div>
         <div class="field"><label>Home node ${help('The destination node packages get moved to.')}</label><select onchange="updateOrd('${o.id}','homenode',this.value)"><option value=""></option>${nodeIdOptionList(o.homenode)}</select></div>
         <div class="field span2"><label>Order nodes (source pool) ${help('The node(s) this order searches for eligible packages in.')}</label><select multiple onchange="updateOrd('${o.id}','ordernodes',Array.from(this.selectedOptions).map(x=>x.value))">${nodeIdMultiOptionList(o.ordernodes)}</select></div>
-        <div class="field"><label>Magnitude</label><input type="number" step="any" value="${esc(o.magnitude)}" oninput="updateOrdSilent('${o.id}','magnitude',this.value)" onblur="updateOrd('${o.id}','magnitude',this.value)"><span class="hint">packages moved per timestep</span></div>
+        <div class="field"><label>Magnitude</label>${distField(o.magnitude, `updateOrdSilent('${o.id}','magnitude',this.value)`, `updateOrd('${o.id}','magnitude',this.value)`, {id:`dist-ordmag-${o.id}`})}<span class="hint">packages moved per timestep</span></div>
       </div>
 
       <label class="advanced-toggle">
@@ -2142,8 +2458,8 @@ function orderCardHtml(o){
             ${['old','new','mix','all'].map(m=>`<option value="${m}" ${o.direction===m?'selected':''}>${m}</option>`).join('')}
           </select>
         </div>
-        <div class="field"><label>Mix ratio ${help('Only used when Direction is "mix" — fraction of moved packages taken from the oldest end vs newest end.')}</label><input type="number" step="any" value="${esc(o.mixratio)}" oninput="updateOrdSilent('${o.id}','mixratio',this.value)" onblur="updateOrd('${o.id}','mixratio',this.value)"></div>
-        <div class="field"><label>Rate (steps) ${help('How many simulation steps between times this order runs. 0 = runs every step.')}</label><input type="number" value="${esc(o.rate)}" oninput="updateOrdSilent('${o.id}','rate',this.value)" onblur="updateOrd('${o.id}','rate',this.value)"></div>
+        <div class="field"><label>Mix ratio ${help('Only used when Direction is "mix" — fraction of moved packages taken from the oldest end vs newest end.')}</label>${distField(o.mixratio, `updateOrdSilent('${o.id}','mixratio',this.value)`, `updateOrd('${o.id}','mixratio',this.value)`, {id:`dist-mixratio-${o.id}`})}</div>
+        <div class="field"><label>Rate (steps) ${help('How many simulation steps between times this order runs. 0 = runs every step.')}</label>${distField(o.rate, `updateOrdSilent('${o.id}','rate',this.value)`, `updateOrd('${o.id}','rate',this.value)`, {id:`dist-ordrate-${o.id}`})}</div>
         <div class="field checkbox"><input type="checkbox" id="cr-${o.id}" ${o.crumbs?'checked':''} onchange="updateOrd('${o.id}','crumbs',this.checked)"><label for="cr-${o.id}">crumbs</label>${help('Allow the order to run even when there are fewer packages available than the magnitude — it just moves whatever is there instead of skipping the step entirely.')}</div>
       </div>` : ''}
 
@@ -2151,7 +2467,7 @@ function orderCardHtml(o){
         <div class="subblock">
           <div class="subblock-title">Separate instruction</div>
           <div class="field-grid">
-            <div class="field"><label>package_mass ${help('The mass to split off into the new (moved) package; the rest stays behind.')}</label><input type="number" step="any" value="${esc(o.packageMass)}" oninput="updateOrdSilent('${o.id}','packageMass',this.value)" onblur="updateOrd('${o.id}','packageMass',this.value)"></div>
+            <div class="field"><label>package_mass ${help('The mass to split off into the new (moved) package; the rest stays behind.')}</label>${distField(o.packageMass, `updateOrdSilent('${o.id}','packageMass',this.value)`, `updateOrd('${o.id}','packageMass',this.value)`, {id:`dist-pkgmass-${o.id}`})}</div>
           </div>
         </div>` : ''}
       ${o.mode==='combine' || o.mode==='batch' ? `
@@ -2193,7 +2509,7 @@ function orderCardHtml(o){
                     <option value="max" ${c.principle==='max'?'selected':''}>max</option>
                   </select>
                 </div>
-                <div class="field"><label>${isMixVariable(c.variable)?'Cumulative limit (usually 1)':'Shared threshold'}</label><input type="number" step="any" value="${esc(c.value)}" oninput="updateCriterionSilent('${o.id}',${ci},'value',this.value)"></div>
+                <div class="field"><label>${isMixVariable(c.variable)?'Cumulative limit (usually 1)':'Shared threshold'}</label>${distField(c.value, `updateCriterionSilent('${o.id}',${ci},'value',this.value)`, null, {id:`dist-critval-${o.id}-${ci}`})}</div>
               </div>
 
               ${isMixVariable(c.variable) ? `
@@ -2283,7 +2599,7 @@ function addAction(type, atIndex){
   if(type==='progress_time') Object.assign(base,{steps:10});
   if(type==='add_order' || type==='remove_order') Object.assign(base,{orderLabel:''});
   if(type==='add_source' || type==='remove_source') Object.assign(base,{sourceLabel:''});
-  if(type==='save_results') Object.assign(base,{filename:'results.xlsx', nodesAll:true, nodes:'', packagesAll:true, packages:'', variables:'mass activity', nuclides:'', nuclideMode:'total', aggMode:'sum', times:''});
+  if(type==='save_results') Object.assign(base,{filename:'results.json', nodesAll:true, nodes:'', packagesAll:true, packages:'', variables:'mass activity', nuclides:'', nuclideMode:'total', aggMode:'sum', times:''});
   if(type==='save_state') Object.assign(base,{filename:'state.xml'});
   if(type==='organize_node') Object.assign(base,{
     filename:'storage_output.xlsx', node:'', mode:'closure', plot:'image', timeunit:'a',
@@ -2476,7 +2792,7 @@ function actionCardHtml(a, i, loc){
       body = `<div class="field"><label>Filename ${help('Writes the full simulation state to this XML file — every node, package, and nuclide inventory at this point in time.')}</label><input type="text" value="${esc(a.filename)}" oninput="updateAction('${a.id}','filename',this.value)"></div>`;
     } else if(a.type==='save_results'){
       body = `
-        <div class="field"><label>Filename ${help('Writes a spreadsheet, one sheet per variable, with a time series of that variable for each selected node/package.')}</label><input type="text" value="${esc(a.filename)}" oninput="updateAction('${a.id}','filename',this.value)"></div>
+        <div class="field"><label>Filename ${help('Writes a JSON file with a time series of each selected variable for each selected node/package. Use a .json extension — Monte Carlo runs rely on it to find and aggregate each trial\'s output.')}</label><input type="text" value="${esc(a.filename)}" oninput="updateAction('${a.id}','filename',this.value)"></div>
         <div class="field checkbox"><input type="checkbox" id="na-${loc}-${a.id}" ${a.nodesAll?'checked':''} onchange="updateAction('${a.id}','nodesAll',this.checked)"><label for="na-${loc}-${a.id}">all nodes</label></div>
         <div class="field checkbox"><input type="checkbox" id="pa-${loc}-${a.id}" ${a.packagesAll?'checked':''} onchange="updateAction('${a.id}','packagesAll',this.checked)"><label for="pa-${loc}-${a.id}">all packages</label></div>
         <div class="field span2"><label>Times (blank = full history) ${help('Optional list of specific times to report, instead of every saved timestep.')}</label><input type="text" value="${esc(a.times)}" oninput="updateAction('${a.id}','times',this.value)"></div>
@@ -2624,7 +2940,7 @@ function actionCardHtml(a, i, loc){
                       <option value="max" ${c.principle==='max'?'selected':''}>max</option>
                     </select>
                   </div>
-                  <div class="field"><label>Threshold</label><input type="number" step="any" value="${esc(c.value)}" oninput="updateActCriterionSilent('${a.id}',${ci},'value',this.value)"></div>
+                  <div class="field"><label>Threshold</label>${distField(c.value, `updateActCriterionSilent('${a.id}',${ci},'value',this.value)`, null, {id:`dist-actcritval-${a.id}-${ci}`})}</div>
                 </div>
               </div>`).join('') || '<p class="empty-hint">No criteria &mdash; every group is accepted.</p>'}
           </div>
@@ -2746,6 +3062,7 @@ function buildXML(){
       attrs.push(`mode="${xmlEscAttr(p.mode)}"`);
       attrs.push(`radioactive="${p.radioactive?'True':'False'}"`);
       attrs.push(`decay_chain="${p.decay_chain?'True':'False'}"`);
+      if(p.secularEquilibrium) attrs.push(`secular_equilibrium="${xmlEscAttr(p.secularEquilibrium)}"`);
       const dateSecs = computePackageDateSeconds(p);
       if(dateSecs!==null) attrs.push(`date="${xmlEscAttr(dateSecs.toFixed(2))}"`);
       const nucs = (p.nuclides||[]).filter(n=>n.name).map(n=>({name:normalizeNuclide(n.name), value:n.value}));
@@ -2836,7 +3153,11 @@ function buildXML(){
   const stepsize = universeSettings.stepsize || 1;
   const stepunit = universeSettings.stepunit || 'a';
   const cores = universeSettings.cores || 1;
-  lines.push(`  <universe num_of_cores="${xmlEscAttr(cores)}" step_size="${xmlEscAttr(stepsize)}" step_unit="${xmlEscAttr(stepunit)}" solver="${xmlEscAttr(universeSettings.solver||'cram16')}">`);
+  const hasDist = modelHasAnyDistribution();
+  const mcAttrs = hasDist
+    ? ` mc_trials="${xmlEscAttr(universeSettings.mcTrials||100)}" mc_sampling="${xmlEscAttr(universeSettings.mcSampling||'random')}"${universeSettings.mcSeed ? ` mc_seed="${xmlEscAttr(universeSettings.mcSeed)}"` : ''}`
+    : '';
+  lines.push(`  <universe num_of_cores="${xmlEscAttr(cores)}" step_size="${xmlEscAttr(stepsize)}" step_unit="${xmlEscAttr(stepunit)}" solver="${xmlEscAttr(universeSettings.solver||'cram16')}"${mcAttrs}>`);
   const anyDisabled = orders.some(o=>o.disabled) || sources.some(s=>s.disabled);
   if(anyDisabled){
     // The universe element's text content is a shared include-list across nodes, orders, and
@@ -2925,6 +3246,7 @@ function buildXML(){
   const xml = lines.join('\n');
   const netPreview = document.getElementById('xml-preview-network');
   if(netPreview) netPreview.textContent = xml;
+  updateMonteCarloPanelVisibility();
   if(typeof scheduleNetworkRender === 'function') scheduleNetworkRender();
   return xml;
 }
@@ -2998,11 +3320,13 @@ function importModelXML(xmlText){
     const dateAttr = pe.getAttribute('date');
     const radioactive = (pe.getAttribute('radioactive')||'True').toLowerCase()==='true';
     const decay_chain = (pe.getAttribute('decay_chain')||'True').toLowerCase()==='true';
+    const secularEquilibrium = pe.getAttribute('secular_equilibrium') || '';
     newPackages.push({
       id:nid(), label: pe.getAttribute('label')||'', mass: pe.getAttribute('mass')??'', volume: pe.getAttribute('volume')??'',
       mode: pe.getAttribute('mode')||'atoms', radioactive, decay_chain,
       packageDate: '', dateSecondsOverride: dateAttr!==null ? parseFloat(dateAttr) : undefined,
-      showAdvanced: (dateAttr!==null || !radioactive || !decay_chain),
+      secularEquilibrium, secularEquilibriumMode: (secularEquilibrium && secularEquilibrium!=='all') ? 'specific' : '',
+      showAdvanced: (dateAttr!==null || !radioactive || !decay_chain || !!secularEquilibrium),
       nuclides: nucs.length ? nucs : [{name:'',value:''}]
     });
   });
@@ -3057,12 +3381,15 @@ function importModelXML(xmlText){
 
   // actions (inside <universe>)
   const universeEl = root.querySelector(':scope > universe');
-  let uCores='1', uStepSize='1', uStepUnit='a', uSolver='cram16';
+  let uCores='1', uStepSize='1', uStepUnit='a', uSolver='cram16', uMcTrials='100', uMcSampling='random', uMcSeed='';
   if(universeEl){
     uCores = universeEl.getAttribute('num_of_cores') || '1';
     uStepSize = universeEl.getAttribute('step_size') || '1';
     uStepUnit = universeEl.getAttribute('step_unit') || 'a';
     uSolver = universeEl.getAttribute('solver') || 'cram16';
+    uMcTrials = universeEl.getAttribute('mc_trials') || '100';
+    uMcSampling = universeEl.getAttribute('mc_sampling') || 'random';
+    uMcSeed = universeEl.getAttribute('mc_seed') || '';
     // The universe element's own direct text (before its first child <action>) is a shared
     // include-list across nodes/orders/sources -- mirrors ElementTree's .text (only text before
     // the first child element), not the DOM's textContent (which would also pick up whitespace
@@ -3135,6 +3462,9 @@ function importModelXML(xmlText){
   universeSettings.stepunit = uStepUnit;
   universeSettings.cores = uCores;
   universeSettings.solver = uSolver;
+  universeSettings.mcTrials = uMcTrials;
+  universeSettings.mcSampling = uMcSampling;
+  universeSettings.mcSeed = uMcSeed;
   renderUniverseSettings();
 
   renderPackages(); renderNodes(); renderSources(); renderOrders(); renderActions();
@@ -3173,7 +3503,7 @@ renderPackages();
 /* ===================== VISUALIZER ===================== */
 const dropzone = document.getElementById('dropzone');
 const fileInput = document.getElementById('fileInput');
-let workbook = null;
+let currentResultsData = null; // {time:[...], variables:{name:{kind,series}}} -- a single run's save_results output
 let chartInstance = null;
 
 ['dragover','dragleave','drop'].forEach(evt=>{
@@ -3190,40 +3520,414 @@ let chartInstance = null;
 });
 fileInput.addEventListener('change', e=>{ if(e.target.files[0]) handleFile(e.target.files[0]); });
 
+function isSingleRunResultsJson(data){
+  return !!data && Array.isArray(data.time) && data.variables && typeof data.variables === 'object';
+}
+// Recognizes both the combined file run_monte_carlo now writes by default ({snapshot:{records},
+// timeseries:{records}}) and the older standalone single-purpose files (aggregate_monte_carlo_results
+// / aggregate_monte_carlo_timeseries called on their own still write {records:[...]} directly).
+function getSnapshotRecords(data){
+  if(data && data.snapshot && Array.isArray(data.snapshot.records)) return data.snapshot.records;
+  if(data && Array.isArray(data.records) && data.records.length && 'node' in data.records[0] && 'package_count' in data.records[0]) return data.records;
+  return null;
+}
+function getTimeseriesRecords(data){
+  if(data && data.timeseries && Array.isArray(data.timeseries.records)) return data.timeseries.records;
+  if(data && Array.isArray(data.records) && data.records.length && 'variable' in data.records[0] && 'time' in data.records[0] && 'series' in data.records[0]) return data.records;
+  return null;
+}
+function isMonteCarloResultsJson(data){ return getSnapshotRecords(data) !== null; }
+function isMonteCarloTimeseriesJson(data){ return getTimeseriesRecords(data) !== null; }
 function handleFile(file){
   document.getElementById('dz-filename').textContent = file.name;
   const reader = new FileReader();
   reader.onload = (e)=>{
-    const data = new Uint8Array(e.target.result);
-    workbook = XLSX.read(data, {type:'array', cellDates:true});
-    const sheetSel = document.getElementById('sheet-select');
-    sheetSel.innerHTML = workbook.SheetNames.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
-    document.getElementById('viz-body').style.display = 'block';
+    let data;
+    try{
+      data = JSON.parse(e.target.result);
+    }catch(err){
+      document.getElementById('viz-empty').textContent = `Could not parse ${file.name} as JSON: ${err.message}`;
+      document.getElementById('viz-empty').style.display = '';
+      document.getElementById('viz-body').style.display = 'none';
+      document.getElementById('mc-results-body').style.display = 'none';
+      return;
+    }
     document.getElementById('viz-empty').style.display = 'none';
+
+    const hasSnapshot = isMonteCarloResultsJson(data);
+    const hasTimeseries = isMonteCarloTimeseriesJson(data);
+
+    if(hasSnapshot || hasTimeseries){
+      document.getElementById('viz-body').style.display = 'none';
+      document.getElementById('mc-results-body').style.display = 'block';
+      document.getElementById('mc-view-pernode-btn').style.display = hasSnapshot ? '' : 'none';
+      document.getElementById('mc-view-compare-btn').style.display = hasSnapshot ? '' : 'none';
+      document.getElementById('mc-view-timeseries-btn').style.display = hasTimeseries ? '' : 'none';
+      if(hasSnapshot) loadMonteCarloResults(data);
+      if(hasTimeseries) loadMonteCarloTimeseries(data);
+      setMonteCarloView(hasSnapshot ? 'pernode' : 'timeseries');
+      return;
+    }
+
+    document.getElementById('mc-results-body').style.display = 'none';
+    if(!isSingleRunResultsJson(data)){
+      document.getElementById('viz-empty').textContent = `${file.name} doesn't look like a save_results output or an aggregated Monte Carlo file.`;
+      document.getElementById('viz-empty').style.display = '';
+      document.getElementById('viz-body').style.display = 'none';
+      return;
+    }
+    currentResultsData = data;
+    const variables = Object.keys(data.variables);
+    const sheetSel = document.getElementById('sheet-select');
+    sheetSel.innerHTML = variables.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
+    document.getElementById('viz-body').style.display = 'block';
     renderSheet();
   };
-  reader.readAsArrayBuffer(file);
+  reader.readAsText(file);
 }
-document.getElementById('sheet-select').addEventListener('change', renderSheet);
 document.getElementById('chart-type').addEventListener('change', renderChart);
+
+let mcData = [];
+let mcTimeseriesData = [];
+let mcTsMode = 'alltrials';
+let mcChartInstances = {};
+let mcAllTrialIds = []; // every distinct trial id seen across mcData/mcTimeseriesData, sorted
+let mcTrialLimit = Infinity; // how many of those (in order) to include in the charts
+function loadMonteCarloTimeseries(data){
+  mcTimeseriesData = getTimeseriesRecords(data).map(r=>({
+    trial: Number(r.trial), variable: String(r.variable), series: String(r.series),
+    nuclide: (r.nuclide===null || r.nuclide===undefined) ? null : String(r.nuclide),
+    time: Number(r.time), value: Number(r.value)
+  }));
+  const variables = Array.from(new Set(mcTimeseriesData.map(r=>r.variable)));
+  const varSelect = document.getElementById('mc-ts-variable-select');
+  if(varSelect) varSelect.innerHTML = variables.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
+  refreshMcTrialLimitControl();
+  onMcTsVariableChange();
+}
+function onMcTsVariableChange(){
+  const variable = document.getElementById('mc-ts-variable-select').value;
+  const series = Array.from(new Set(mcTimeseriesData.filter(r=>r.variable===variable).map(r=>r.series)));
+  const seriesSelect = document.getElementById('mc-ts-series-select');
+  if(seriesSelect) seriesSelect.innerHTML = series.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('');
+  onMcTsSeriesChange();
+}
+function onMcTsSeriesChange(){
+  const variable = document.getElementById('mc-ts-variable-select').value;
+  const series = document.getElementById('mc-ts-series-select').value;
+  const nuclides = Array.from(new Set(mcTimeseriesData.filter(r=>r.variable===variable && r.series===series && r.nuclide!==null).map(r=>r.nuclide)));
+  const nuclideRow = document.getElementById('mc-ts-nuclide-row');
+  if(nuclides.length){
+    nuclideRow.style.display = '';
+    const nucSelect = document.getElementById('mc-ts-nuclide-select');
+    nucSelect.innerHTML = nuclides.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  } else {
+    nuclideRow.style.display = 'none';
+  }
+  renderMonteCarloTimeSeries();
+}
+function setMcTimeSeriesMode(mode){
+  mcTsMode = mode;
+  document.getElementById('mc-ts-mode-alltrials-btn').classList.toggle('active', mode==='alltrials');
+  document.getElementById('mc-ts-mode-aggregated-btn').classList.toggle('active', mode==='aggregated');
+  document.getElementById('mc-ts-hint').style.display = mode==='alltrials' ? '' : 'none';
+  renderMonteCarloTimeSeries();
+}
+function renderMonteCarloTimeSeries(){
+  const varSelect = document.getElementById('mc-ts-variable-select');
+  const seriesSelect = document.getElementById('mc-ts-series-select');
+  if(!varSelect || !seriesSelect || !varSelect.value || !seriesSelect.value) return;
+  const nuclideRow = document.getElementById('mc-ts-nuclide-row');
+  const nuclideSelect = document.getElementById('mc-ts-nuclide-select');
+  const wantNuclide = nuclideRow && nuclideRow.style.display !== 'none' ? nuclideSelect.value : null;
+  const visible = mcVisibleTrialSet();
+  const rows = mcTimeseriesData.filter(r=>r.variable===varSelect.value && r.series===seriesSelect.value &&
+    (wantNuclide ? r.nuclide===wantNuclide : r.nuclide===null) && visible.has(r.trial));
+  if(mcTsMode === 'aggregated') renderMcTimeSeriesAggregated(rows, varSelect.value);
+  else renderMcTimeSeriesAllTrials(rows, varSelect.value);
+}
+function renderMcTimeSeriesAllTrials(rows, variableLabel){
+  const canvas = document.getElementById('mc-ts-chart');
+  if(!canvas) return;
+  const trials = Array.from(new Set(rows.map(r=>r.trial))).sort((a,b)=>a-b);
+  // Every trial is its own dataset, faint by default -- where many trials agree, the
+  // overlapping faint lines visually build up into a darker "trend zone" on their own,
+  // with no extra work needed. Hovering a specific line brings just that one forward.
+  const datasets = trials.map(trial=>{
+    const pts = rows.filter(r=>r.trial===trial).sort((a,b)=>a.time-b.time).map(r=>({x:r.time, y:r.value}));
+    return {
+      label: `trial ${trial}`,
+      data: pts,
+      borderColor: 'rgba(198,127,30,0.16)',
+      borderWidth: 1.25,
+      pointRadius: 0,
+      pointHitRadius: 6,
+      pointHoverRadius: 3,
+      hoverBorderColor: cssVar('--amber') || '#c67f1e',
+      hoverBorderWidth: 2.5,
+      tension: 0.15,
+      fill: false
+    };
+  });
+  if(mcChartInstances.timeseries) mcChartInstances.timeseries.destroy();
+  mcChartInstances.timeseries = new Chart(canvas.getContext('2d'), {
+    type: 'line',
+    data: { datasets },
+    options: {
+      interaction: { mode: 'dataset', intersect: true },
+      plugins: { legend: { display: false } },
+      scales: { x: { type: 'linear', title: { display: true, text: 'time' } },
+                 y: { title: { display: true, text: variableLabel } } }
+    }
+  });
+}
+function renderMcTimeSeriesAggregated(rows, variableLabel){
+  const canvas = document.getElementById('mc-ts-chart');
+  if(!canvas) return;
+  const times = Array.from(new Set(rows.map(r=>r.time))).sort((a,b)=>a-b);
+  const meanPts = [];
+  const upper1=[], lower1=[], upper2=[], lower2=[], upper3=[], lower3=[];
+  times.forEach(t=>{
+    const vals = rows.filter(r=>r.time===t).map(r=>r.value);
+    if(!vals.length) return;
+    const stats = computeStats(vals);
+    meanPts.push({x:t, y:stats.mean});
+    upper1.push({x:t, y:stats.mean+stats.std});
+    lower1.push({x:t, y:stats.mean-stats.std});
+    upper2.push({x:t, y:stats.mean+2*stats.std});
+    lower2.push({x:t, y:stats.mean-2*stats.std});
+    upper3.push({x:t, y:stats.mean+3*stats.std});
+    lower3.push({x:t, y:stats.mean-3*stats.std});
+  });
+  if(mcChartInstances.timeseries) mcChartInstances.timeseries.destroy();
+  mcChartInstances.timeseries = new Chart(canvas.getContext('2d'), {
+    type: 'line',
+    data: {
+      // Each band is an upper/lower pair of invisible boundary lines with the lower one filled
+      // back to the upper one ('-1' = the previous dataset). The three bands are drawn widest-first
+      // (order 6/5/4, higher order = further back) so their overlapping alpha stacks into a darker
+      // core near the mean, same visual language as the "compare across nodes" chart.
+      datasets: [
+        { label: 'upper', data: upper3, borderColor: 'transparent', pointRadius: 0, fill: false, order: 6 },
+        { label: '\u00b13 SD', data: lower3, borderColor: 'transparent', backgroundColor: 'rgba(198,127,30,0.09)', pointRadius: 0, fill: '-1', order: 6 },
+        { label: 'upper', data: upper2, borderColor: 'transparent', pointRadius: 0, fill: false, order: 5 },
+        { label: '\u00b12 SD', data: lower2, borderColor: 'transparent', backgroundColor: 'rgba(198,127,30,0.17)', pointRadius: 0, fill: '-1', order: 5 },
+        { label: 'upper', data: upper1, borderColor: 'transparent', pointRadius: 0, fill: false, order: 4 },
+        { label: '\u00b11 SD', data: lower1, borderColor: 'transparent', backgroundColor: 'rgba(198,127,30,0.30)', pointRadius: 0, fill: '-1', order: 4 },
+        { label: 'mean', data: meanPts, borderColor: cssVar('--amber') || '#c67f1e', borderWidth: 2.5, pointRadius: 0, fill: false, order: 1 }
+      ]
+    },
+    options: {
+      plugins: { legend: { display: true, labels: { boxHeight: 8, filter: item => item.text !== 'upper' } } },
+      scales: { x: { type: 'linear', title: { display: true, text: 'time' } },
+                 y: { title: { display: true, text: variableLabel } } }
+    }
+  });
+}
+function loadMonteCarloResults(data){
+  mcData = getSnapshotRecords(data).map(r=>({
+    trial: Number(r.trial), node: String(r.node),
+    package_count: Number(r.package_count), mass: Number(r.mass), volume: Number(r.volume)
+  }));
+  const nodes = Array.from(new Set(mcData.map(r=>r.node)));
+  const nodeSelect = document.getElementById('mc-node-select');
+  nodeSelect.innerHTML = nodes.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  refreshMcTrialLimitControl();
+  renderMonteCarloDistributions();
+}
+function refreshMcTrialLimitControl(){
+  const ids = new Set();
+  mcData.forEach(r=>ids.add(r.trial));
+  mcTimeseriesData.forEach(r=>ids.add(r.trial));
+  mcAllTrialIds = Array.from(ids).sort((a,b)=>a-b);
+  const total = mcAllTrialIds.length;
+  const row = document.getElementById('mc-trial-limit-row');
+  const slider = document.getElementById('mc-trial-limit');
+  if(row) row.style.display = total > 1 ? '' : 'none';
+  if(!slider) return;
+  slider.min = 1;
+  slider.max = Math.max(1, total);
+  slider.value = Math.max(1, total); // default to showing every trial on a fresh load
+  mcTrialLimit = Math.max(1, total);
+  updateMcTrialLimitLabel();
+}
+function updateMcTrialLimitLabel(){
+  const slider = document.getElementById('mc-trial-limit');
+  const label = document.getElementById('mc-trial-limit-label');
+  if(!slider || !label) return;
+  label.textContent = `${slider.value} / ${mcAllTrialIds.length}`;
+}
+// Trials are included in the order they appear in mcAllTrialIds, up to the slider's count.
+function mcVisibleTrialSet(){
+  return new Set(mcAllTrialIds.slice(0, mcTrialLimit));
+}
+function onMcTrialLimitChange(){
+  const slider = document.getElementById('mc-trial-limit');
+  mcTrialLimit = parseInt(slider.value, 10) || mcAllTrialIds.length;
+  updateMcTrialLimitLabel();
+  renderMonteCarloDistributions();
+  renderMonteCarloComparison();
+  renderMonteCarloTimeSeries();
+}
+function computeStats(values){
+  const n = values.length;
+  const mean = values.reduce((a,b)=>a+b,0)/n;
+  const variance = n>1 ? values.reduce((a,b)=>a+(b-mean)**2,0)/n : 0;
+  const std = Math.sqrt(variance);
+  const sorted = [...values].sort((a,b)=>a-b);
+  const min = sorted[0], max = sorted[n-1];
+  const median = n%2===0 ? (sorted[n/2-1]+sorted[n/2])/2 : sorted[(n-1)/2];
+  return {mean, std, min, max, median, n};
+}
+function formatStatValue(v){
+  if(!Number.isFinite(v)) return '—';
+  return (Math.abs(v)>=1000 || (Math.abs(v)<0.01 && v!==0)) ? v.toExponential(3) : v.toFixed(3);
+}
+function formatStatsLine(stats){
+  return `n=${stats.n} \u00b7 mean ${formatStatValue(stats.mean)} \u00b7 std ${formatStatValue(stats.std)} \u00b7 min ${formatStatValue(stats.min)} \u00b7 median ${formatStatValue(stats.median)} \u00b7 max ${formatStatValue(stats.max)}`;
+}
+function histogramBins(values, binCount){
+  binCount = Math.max(1, binCount || 12);
+  const min = Math.min(...values), max = Math.max(...values);
+  if(min === max){
+    return { labels:[String(min)], counts:[values.length] };
+  }
+  const width = (max - min) / binCount;
+  const counts = new Array(binCount).fill(0);
+  values.forEach(v=>{
+    let idx = Math.floor((v - min) / width);
+    if(idx >= binCount) idx = binCount - 1;
+    if(idx < 0) idx = 0;
+    counts[idx]++;
+  });
+  const labels = counts.map((_,i)=>{
+    const lo = min + i*width, hi = min + (i+1)*width;
+    return `${lo.toFixed(1)}\u2013${hi.toFixed(1)}`;
+  });
+  return { labels, counts };
+}
+function renderMonteCarloDistributions(){
+  const nodeSelect = document.getElementById('mc-node-select');
+  const node = nodeSelect ? nodeSelect.value : null;
+  const visible = mcVisibleTrialSet();
+  const rows = mcData.filter(r=>r.node===node && visible.has(r.trial));
+  ['package_count','mass','volume'].forEach(key=>{
+    const values = rows.map(r=>r[key]);
+    if(!values.length) return;
+    const stats = computeStats(values);
+    const statsEl = document.getElementById(`mc-stats-${key}`);
+    if(statsEl) statsEl.textContent = formatStatsLine(stats);
+    const distinctCount = new Set(values).size;
+    const binCount = key==='package_count' ? Math.max(1, Math.min(12, distinctCount)) : 12;
+    const {labels, counts} = histogramBins(values, binCount);
+    const canvas = document.getElementById(`mc-chart-${key}`);
+    if(!canvas) return;
+    if(mcChartInstances[key]) mcChartInstances[key].destroy();
+    mcChartInstances[key] = new Chart(canvas.getContext('2d'), {
+      type: 'bar',
+      data: { labels, datasets: [{ data: counts, backgroundColor: cssVar('--amber') || '#c67f1e' }] },
+      options: {
+        plugins: { legend: { display: false } },
+        scales: { y: { title: { display: true, text: 'trials' }, beginAtZero: true, ticks: { precision: 0 } },
+                   x: { title: { display: true, text: key } } }
+      }
+    });
+  });
+}
+function setMonteCarloView(view){
+  document.getElementById('mc-pernode-view').style.display = view==='pernode' ? 'block' : 'none';
+  document.getElementById('mc-compare-view').style.display = view==='compare' ? 'block' : 'none';
+  document.getElementById('mc-timeseries-view').style.display = view==='timeseries' ? 'block' : 'none';
+  document.getElementById('mc-view-pernode-btn').classList.toggle('active', view==='pernode');
+  document.getElementById('mc-view-compare-btn').classList.toggle('active', view==='compare');
+  document.getElementById('mc-view-timeseries-btn').classList.toggle('active', view==='timeseries');
+  if(view==='compare') renderMonteCarloComparison();
+  if(view==='timeseries') renderMonteCarloTimeSeries();
+}
+function renderMonteCarloComparison(){
+  const variable = document.getElementById('mc-compare-variable-select').value;
+  const nodes = Array.from(new Set(mcData.map(r=>r.node)));
+  const canvas = document.getElementById('mc-compare-chart');
+  if(!canvas) return;
+
+  const rawPoints = [];
+  const meanPoints = [];
+  const band1 = [], band2 = [], band3 = [];
+  const visible = mcVisibleTrialSet();
+  nodes.forEach((node, idx)=>{
+    const values = mcData.filter(r=>r.node===node && visible.has(r.trial)).map(r=>r[variable]);
+    if(!values.length) return;
+    const stats = computeStats(values);
+    // Deliberately no jitter -- every trial sits at the exact same x as its node, so any
+    // spread you see is purely vertical (the actual deviation), not a rendering artifact.
+    values.forEach(v=>{ rawPoints.push({ x: idx, y: v }); });
+    meanPoints.push({ x: idx, y: stats.mean });
+    band1.push({ x: idx, y: [stats.mean - stats.std, stats.mean + stats.std] });
+    band2.push({ x: idx, y: [stats.mean - 2*stats.std, stats.mean + 2*stats.std] });
+    band3.push({ x: idx, y: [stats.mean - 3*stats.std, stats.mean + 3*stats.std] });
+  });
+
+  if(mcChartInstances.compare) mcChartInstances.compare.destroy();
+  mcChartInstances.compare = new Chart(canvas.getContext('2d'), {
+    data: {
+      datasets: [
+        { type: 'bar', label: '\u00b13 SD', data: band3, backgroundColor: 'rgba(198,127,30,0.09)', borderWidth: 0, barThickness: 46, order: 5, grouped: false },
+        { type: 'bar', label: '\u00b12 SD', data: band2, backgroundColor: 'rgba(198,127,30,0.17)', borderWidth: 0, barThickness: 34, order: 4, grouped: false },
+        { type: 'bar', label: '\u00b11 SD', data: band1, backgroundColor: 'rgba(198,127,30,0.30)', borderWidth: 0, barThickness: 22, order: 3, grouped: false },
+        { type: 'scatter', label: 'trials', data: rawPoints, backgroundColor: 'rgba(34,32,26,0.22)', pointRadius: 3, pointHoverRadius: 5, order: 2 },
+        { type: 'scatter', label: 'mean', data: meanPoints, backgroundColor: cssVar('--text') || '#22201a',
+          pointRadius: 6, pointStyle: 'circle', order: 1 }
+      ]
+    },
+    options: {
+      plugins: {
+        legend: { display: true, labels: { boxHeight: 8, filter: item => item.text !== 'trials' } },
+        tooltip: { callbacks: { title: (items)=> nodes[Math.round(items[0].parsed.x)] ?? '' } }
+      },
+      scales: {
+        x: { type: 'linear', min: -0.5, max: Math.max(0, nodes.length-0.5),
+             title: { display: true, text: 'node' },
+             afterBuildTicks: scale => { scale.ticks = nodes.map((_, i) => ({ value: i })); },
+             ticks: { maxRotation: 0, minRotation: 0, autoSkip: false, callback: v => nodes[Math.round(v)] ?? '' } },
+        y: { title: { display: true, text: variable } }
+      }
+    }
+  });
+}
 
 let currentRows = [];
 let currentCols = [];
 let activeSeries = new Set();
 
 function renderSheet(){
-  const sheetName = document.getElementById('sheet-select').value;
-  const sheet = workbook.Sheets[sheetName];
-  const json = XLSX.utils.sheet_to_json(sheet, {header:1, defval:''});
-  if(!json.length) return;
-  const header = json[0];
-  const rows = json.slice(1).filter(r=> r.some(c=>c!==''));
-  currentCols = header;
-  currentRows = rows;
-  activeSeries = new Set(header.slice(1,6)); // preselect first few numeric columns
+  const varName = document.getElementById('sheet-select').value;
+  const varData = currentResultsData && currentResultsData.variables[varName];
+  const nuclideRow = document.getElementById('nuclide-select-row');
+  if(!varData){ nuclideRow.style.display = 'none'; return; }
+
+  let seriesEntries; // array of [label, valuesArray]
+  if(varData.kind === 'per_nuclide'){
+    nuclideRow.style.display = '';
+    const seriesLabels = Object.keys(varData.series);
+    const firstSeriesNuclides = seriesLabels.length ? Object.keys(varData.series[seriesLabels[0]]) : [];
+    const nucSelect = document.getElementById('nuclide-select');
+    if(nucSelect.dataset.forVar !== varName){
+      nucSelect.innerHTML = firstSeriesNuclides.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+      nucSelect.dataset.forVar = varName;
+    }
+    const chosenNuclide = nucSelect.value || firstSeriesNuclides[0];
+    seriesEntries = seriesLabels.map(lbl => [lbl, (varData.series[lbl] && varData.series[lbl][chosenNuclide]) || []]);
+  } else {
+    nuclideRow.style.display = 'none';
+    seriesEntries = Object.entries(varData.series);
+  }
+
+  currentCols = ['Time', ...seriesEntries.map(([lbl])=>lbl)];
+  currentRows = currentResultsData.time.map((t,i)=> [t, ...seriesEntries.map(([,vals])=> vals[i])]);
+  activeSeries = new Set(currentCols.slice(1,6)); // preselect first few series
 
   const seriesList = document.getElementById('series-list');
-  seriesList.innerHTML = header.slice(1).map(h=>`
+  seriesList.innerHTML = currentCols.slice(1).map(h=>`
     <label class="series-chip ${activeSeries.has(h)?'active':''}">
       <input type="checkbox" ${activeSeries.has(h)?'checked':''} onchange="toggleSeries('${esc(h)}', this)">
       ${esc(h)}
@@ -3345,7 +4049,7 @@ function orderCriteriaChipTexts(o){
   const symbol = p => p==='min' ? '\u2265' : p==='max' ? '\u2264' : p;
   const chips = o.criteria.map(c=>{
     const varLabel = chipVariableLabel(c.variable);
-    const val = (c.value!==''&&c.value!==undefined) ? c.value : '?';
+    const val = (c.value!==''&&c.value!==undefined) ? compactValueDisplay(c.value) : '?';
     const nucCount = isMixVariable(c.variable) ? ` (${(c.filters||[]).length} nuc)` : '';
     return `${varLabel} ${symbol(c.principle)} ${val}${nucCount}`;
   });
@@ -3481,7 +4185,7 @@ function renderNetworkDiagram(){
       if(!fromBox || fromBox===homeBox) return;
       const mx = ((homeBox.x+homeBox.w/2) + (fromBox.x+fromBox.w/2))/2;
       const my = ((homeBox.y+homeBox.h/2) + (fromBox.y+fromBox.h/2))/2;
-      const labelWithMag = `${o.label} \u00d7${o.magnitude}${o.disabled?' (off)':''}`;
+      const labelWithMag = `${o.label} \u00d7${compactValueDisplay(o.magnitude)}${o.disabled?' (off)':''}`;
       // halo text: a thick background-colored stroke painted behind the fill, so it only "cuts"
       // around the glyph shapes instead of slicing the arrow with a hard rectangle.
       svg += `<text class="order-hit" data-order-id="${o.id}" x="${mx.toFixed(1)}" y="${(my-4).toFixed(1)}" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" font-weight="600" paint-order="stroke" stroke="${cPanel}" stroke-width="5" stroke-linejoin="round" fill="${isSel?cText:orderColor}">${esc(labelWithMag)}</text>`;
@@ -3508,7 +4212,7 @@ function renderNetworkDiagram(){
     const edge = rectEdgePoint(toBox, pipX, pipY);
     svg += `<line x1="${pipX.toFixed(1)}" y1="${pipY.toFixed(1)}" x2="${edge.x.toFixed(1)}" y2="${edge.y.toFixed(1)}" stroke="${sourceColor}" stroke-width="1.5" ${s.disabled?'stroke-dasharray="2,3"':''} marker-end="url(#arrow-source)" style="pointer-events:none;" opacity="${s.disabled?0.6:1}"/>`;
     svg += `<circle class="source-hit" data-source-id="${s.id}" cx="${pipX.toFixed(1)}" cy="${pipY.toFixed(1)}" r="${isSel?8:5}" fill="${sourceColor}" opacity="${s.disabled?0.6:1}" ${isSel?`stroke="${cAmber}" stroke-width="2"`:''}><title>Source ${esc(s.label)}${s.disabled?' (disabled — excluded from the simulation)':''}\ndrag to reposition\npackage: ${esc(s.package)}, magnitude ${esc(s.magnitude)}, every ${esc(s.rate)} step(s)</title></circle>`;
-    const labelText = `${s.package||'(no package)'} \u00d7${s.magnitude}${s.disabled?' (off)':''}`;
+    const labelText = `${s.package||'(no package)'} \u00d7${compactValueDisplay(s.magnitude)}${s.disabled?' (off)':''}`;
     const labelSide = pipX < toBox.x ? -1 : 1; // keep text from overlapping the node box
     svg += `<text class="source-hit" data-source-id="${s.id}" x="${(pipX+labelSide*9).toFixed(1)}" y="${(pipY+3).toFixed(1)}" text-anchor="${labelSide<0?'end':'start'}" font-family="IBM Plex Mono" font-size="9" font-weight="600" paint-order="stroke" stroke="${cPanel}" stroke-width="4" stroke-linejoin="round" fill="${isSel?cText:sourceColor}">${esc(labelText)}</text>`;
   });
