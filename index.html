@@ -1199,8 +1199,7 @@
           <span class="node"></span><span class="arm"></span><span class="node small"></span><span class="arm"></span><span class="node small"></span><span class="arm"></span><span class="node small"></span>
         </div>
         <p>Drop one or more <strong>.xml</strong> files from a <code>save_state</code> action, or click to browse. Each file is one snapshot in time &mdash; load several (one per checkpoint) to compare timesteps.</p>
-        <p class="fname" id="dz-state-filename"></p>
-        <input type="file" id="stateFileInput" accept=".xml" multiple>
+        <input type="file" id="stateFileInput" accept=".xml" multiple style="display:none;">
       </div>
 
       <div id="state-body" style="display:none;">
@@ -1210,8 +1209,18 @@
             <select id="state-snapshot-select" onchange="renderStateSnapshot()"></select>
           </div>
           <div class="field checkbox">
-            <input type="checkbox" id="state-show-ages" onchange="renderStateSnapshot()">
+            <input type="checkbox" id="state-show-ages" onchange="renderStateSnapshot(); updateStateAgeUnitVisibility();">
             <label for="state-show-ages">show package ages</label>
+          </div>
+          <div class="field" id="state-age-unit-field" style="display:none;">
+            <label>Age unit <span class="help-bubble" tabindex="0">?<span class="tip">Package ages are stored in seconds internally — pick a unit to display them in. This is just for display here; it doesn't affect the simulation itself.</span></span></label>
+            <select id="state-age-unit" onchange="renderStateSnapshot()">
+              <option value="a" selected>years (a)</option>
+              <option value="m">months</option>
+              <option value="d">days</option>
+              <option value="h">hours</option>
+              <option value="s">seconds</option>
+            </select>
           </div>
         </div>
 
@@ -3647,9 +3656,11 @@ function getParameterRecords(data){
 function isMonteCarloResultsJson(data){ return getSnapshotRecords(data) !== null; }
 function isMonteCarloTimeseriesJson(data){ return getTimeseriesRecords(data) !== null; }
 function handleFile(file){
-  document.getElementById('dz-filename').textContent = file.name;
+  const nameEl = document.getElementById('dz-filename');
+  nameEl.textContent = file.name + ' \u2014 loading\u2026';
   const reader = new FileReader();
   reader.onload = (e)=>{
+    nameEl.textContent = file.name;
     let data;
     try{
       data = JSON.parse(e.target.result);
@@ -4230,12 +4241,24 @@ function renderSnapshot(){
   html += '</tbody>';
   tbl.innerHTML = html || '<p class="empty-hint">No series selected.</p>';
 }
+// Inserting a whole results table at once is a single synchronous innerHTML assignment, and
+// DOM insertion cost grows with cell count -- a few thousand timesteps x a few dozen series
+// blocks the main thread for seconds (a real browser freeze, not just slowness). The table is
+// for eyeballing values, not bulk export, so it renders a capped window; the chart above still
+// plots every point, and the full series is copyable from the Monte Carlo trial lookup.
+const MAX_TABLE_ROWS = 300;
 function renderTable(){
   const tbl = document.getElementById('data-table');
+  const total = currentRows.length;
+  const shown = Math.min(total, MAX_TABLE_ROWS);
+  const nCols = currentCols.length;
   let html = '<thead><tr>' + currentCols.map(c=>`<th>${esc(c)}</th>`).join('') + '</tr></thead><tbody>';
-  currentRows.forEach(r=>{
-    html += '<tr>' + r.map(c=>`<td>${esc(c)}</td>`).join('') + '</tr>';
-  });
+  for(let i=0;i<shown;i++){
+    html += '<tr>' + currentRows[i].map(c=>`<td>${esc(c)}</td>`).join('') + '</tr>';
+  }
+  if(total > shown){
+    html += `<tr><td colspan="${nCols}" style="text-align:left;color:var(--text-dim);">Showing the first ${shown.toLocaleString()} of ${total.toLocaleString()} rows &mdash; the chart above plots all of them.</td></tr>`;
+  }
   html += '</tbody>';
   tbl.innerHTML = html;
 }
@@ -5105,7 +5128,6 @@ let stateSnapshots = []; // {filename, doc}
 document.getElementById('stateFileInput').addEventListener('change', e=>{
   const files = Array.from(e.target.files||[]);
   if(!files.length) return;
-  document.getElementById('dz-state-filename').textContent = files.map(f=>f.name).join(', ');
   stateSnapshots = [];
   let remaining = files.length;
   files.forEach(file=>{
@@ -5137,12 +5159,68 @@ function currentStateDoc(){
   if(isNaN(idx) || !stateSnapshots[idx]) return null;
   return stateSnapshots[idx].doc;
 }
+// Matches xml_convert.py's convert_time() exactly (a plain 365-day year, not 365.25 --
+// same convention the simulation itself uses) so displayed ages agree with what the model
+// would report, not an independently-chosen approximation.
+const STATE_SECONDS_PER_UNIT = { a: 60*60*24*365, m: 60*60*24*365/12, d: 60*60*24, h: 60*60, s: 1 };
+function secondsToUnit(seconds, unit){
+  return seconds / (STATE_SECONDS_PER_UNIT[unit] || 1);
+}
+function updateStateAgeUnitVisibility(){
+  const show = document.getElementById('state-show-ages')?.checked ?? false;
+  const field = document.getElementById('state-age-unit-field');
+  if(field) field.style.display = show ? '' : 'none';
+}
+function parseCombinedPackagesMap(doc){
+  // label -> array of {label, age, factor} -- read straight from the state file's own
+  // <combined_packages><combined_package label="..."><component label=".." age=".."/></combined_package>
+  // section, so this always matches whatever combine logic actually produced, rather than
+  // trying to pattern-match the generated label string itself.
+  const map = new Map();
+  Array.from(doc.querySelectorAll('combined_packages > combined_package')).forEach(cp=>{
+    const label = cp.getAttribute('label');
+    const components = Array.from(cp.querySelectorAll('component')).map(c=>({
+      label: c.getAttribute('label'),
+      age: c.getAttribute('age'),
+      factor: (c.textContent||'').trim()
+    }));
+    map.set(label, components);
+  });
+  return map;
+}
 function renderStateSnapshot(){
   const doc = currentStateDoc();
   const nodesTbl = document.getElementById('state-nodes-table');
   if(!doc){ nodesTbl.innerHTML = '<tbody><tr><td>Could not parse this file.</td></tr></tbody>'; return; }
 
   const showAges = document.getElementById('state-show-ages')?.checked ?? false;
+  const ageUnit = document.getElementById('state-age-unit')?.value || 'a';
+  const fmtAge = seconds => secondsToUnit(seconds, ageUnit).toFixed(2);
+  const combinedMap = parseCombinedPackagesMap(doc);
+  // Numbered once, consistently across the whole snapshot -- the same underlying combined
+  // package always gets the same clean name, even if referenced from more than one place.
+  const cleanNameFor = new Map();
+  let combinedCounter = 0;
+  function cleanCombinedName(origLabel){
+    if(!cleanNameFor.has(origLabel)){
+      combinedCounter++;
+      cleanNameFor.set(origLabel, `CombinedPackage${combinedCounter}`);
+    }
+    return cleanNameFor.get(origLabel);
+  }
+  // A constituent's age-in-the-component-list is its age AT THE MOMENT it was combined --
+  // not how old it is now. Its actual current total age is that, plus however long the
+  // combined package itself has existed since (its own age at this snapshot).
+  function combinedTooltip(origLabel, components, ownAgeSeconds){
+    return components.map(c=>{
+      const factorStr = (c.factor && c.factor !== '1' && c.factor !== '1.0') ? `, factor ${c.factor}` : '';
+      if(c.age!==null && c.age!==undefined && c.age!=='' && ownAgeSeconds!==null){
+        const ageAtCombination = Number(c.age);
+        return `${c.label} (${fmtAge(ageAtCombination + ownAgeSeconds)} ${ageUnit}, combined at ${fmtAge(ageAtCombination)} ${ageUnit}${factorStr})`;
+      }
+      return `${c.label} (age unknown${factorStr})`;
+    }).join('\n');
+  }
 
   // nodes: <nodes><node label mass volume><label>pkg1 pkg2..</label><age>a1 a2..</age></node></nodes>
   const nodeEls = Array.from(doc.querySelectorAll('nodes > node'));
@@ -5155,8 +5233,17 @@ function renderStateSnapshot(){
     const agesText = ne.querySelector('age') ? ne.querySelector('age').textContent.trim() : '';
     const pkgLabels = pkgLabelsText ? pkgLabelsText.split(/\s+/) : [];
     const ages = agesText ? agesText.split(/\s+/) : [];
-    const contentsList = pkgLabels.map((pl,i)=> showAges ? `${pl} (age ${ages[i]!==undefined?Number(ages[i]).toFixed(2):'?'})` : pl).join(', ') || '(empty)';
-    rows += `<tr><td style="text-align:left;">${esc(label)}</td><td>${esc(mass)}</td><td>${esc(volume)}</td><td style="text-align:left;">${esc(contentsList)}</td></tr>`;
+    const contentsHtml = pkgLabels.map((pl,i)=>{
+      const ownAgeSeconds = ages[i]!==undefined ? Number(ages[i]) : null;
+      const ageSuffix = showAges ? ` (age ${ownAgeSeconds!==null?fmtAge(ownAgeSeconds)+' '+ageUnit:'?'})` : '';
+      if(combinedMap.has(pl)){
+        const displayName = cleanCombinedName(pl);
+        const tooltip = combinedTooltip(pl, combinedMap.get(pl), ownAgeSeconds);
+        return `<span title="${esc(tooltip)}" style="text-decoration:underline dotted;text-decoration-color:var(--text-faint);cursor:help;">${esc(displayName)}</span>${esc(ageSuffix)}`;
+      }
+      return esc(pl + ageSuffix);
+    }).join(', ') || '(empty)';
+    rows += `<tr><td style="text-align:left;">${esc(label)}</td><td>${esc(mass)}</td><td>${esc(volume)}</td><td style="text-align:left;">${contentsHtml}</td></tr>`;
   });
   nodesTbl.innerHTML = `<thead><tr><th>Node</th><th>Mass</th><th>Volume</th><th>Packages${showAges?' (age)':''}</th></tr></thead><tbody>${rows || '<tr><td colspan="4">No &lt;nodes&gt; element found.</td></tr>'}</tbody>`;
 }
