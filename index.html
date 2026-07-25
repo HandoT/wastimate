@@ -324,7 +324,7 @@
     display:none;position:fixed;
     background:var(--panel-alt);border:1px solid var(--border);color:var(--text);
     padding:8px 10px;border-radius:var(--radius);font-size:11.5px;font-family:var(--sans);font-weight:400;
-    width:max-content;max-width:230px;line-height:1.45;z-index:9999;text-align:left;
+    width:max-content;max-width:230px;line-height:1.45;z-index:9999;text-align:left;white-space:pre-line;
     box-shadow:0 6px 18px rgba(0,0,0,.3);text-transform:none;letter-spacing:normal;
   }
   .help-bubble .tip.tip-visible{display:block;}
@@ -5197,16 +5197,31 @@ function renderStateSnapshot(){
   const ageUnit = document.getElementById('state-age-unit')?.value || 'a';
   const fmtAge = seconds => secondsToUnit(seconds, ageUnit).toFixed(2);
   const combinedMap = parseCombinedPackagesMap(doc);
-  // Numbered once, consistently across the whole snapshot -- the same underlying combined
-  // package always gets the same clean name, even if referenced from more than one place.
+  const nodeEls = Array.from(doc.querySelectorAll('nodes > node'));
+
+  // A combined package's own age (from the node's <age> list, wherever it's referenced) IS
+  // how long it's existed since creation -- older age means it was created earlier. Collect
+  // every unique combined package's age first, in one pass across all nodes, so numbering can
+  // be assigned oldest-first regardless of which node happens to list it, or in what order the
+  // nodes themselves appear in the file.
+  const combinedAgeByLabel = new Map();
+  nodeEls.forEach(ne=>{
+    const pkgLabelsText = ne.querySelector('label') ? ne.querySelector('label').textContent.trim() : '';
+    const agesText = ne.querySelector('age') ? ne.querySelector('age').textContent.trim() : '';
+    const pkgLabels = pkgLabelsText ? pkgLabelsText.split(/\s+/) : [];
+    const ages = agesText ? agesText.split(/\s+/) : [];
+    pkgLabels.forEach((pl,i)=>{
+      if(combinedMap.has(pl) && !combinedAgeByLabel.has(pl) && ages[i]!==undefined){
+        combinedAgeByLabel.set(pl, Number(ages[i]));
+      }
+    });
+  });
   const cleanNameFor = new Map();
-  let combinedCounter = 0;
+  Array.from(combinedAgeByLabel.entries())
+    .sort((a,b)=> b[1]-a[1]) // oldest (largest age) first
+    .forEach(([label], idx)=> cleanNameFor.set(label, `CombinedPackage${idx+1}`));
   function cleanCombinedName(origLabel){
-    if(!cleanNameFor.has(origLabel)){
-      combinedCounter++;
-      cleanNameFor.set(origLabel, `CombinedPackage${combinedCounter}`);
-    }
-    return cleanNameFor.get(origLabel);
+    return cleanNameFor.get(origLabel) || origLabel; // falls back to the raw label only if its age couldn't be determined
   }
   // A constituent's age-in-the-component-list is its age AT THE MOMENT it was combined --
   // not how old it is now. Its actual current total age is that, plus however long the
@@ -5223,7 +5238,6 @@ function renderStateSnapshot(){
   }
 
   // nodes: <nodes><node label mass volume><label>pkg1 pkg2..</label><age>a1 a2..</age></node></nodes>
-  const nodeEls = Array.from(doc.querySelectorAll('nodes > node'));
   let rows = '';
   nodeEls.forEach(ne=>{
     const label = ne.getAttribute('label');
@@ -5239,7 +5253,7 @@ function renderStateSnapshot(){
       if(combinedMap.has(pl)){
         const displayName = cleanCombinedName(pl);
         const tooltip = combinedTooltip(pl, combinedMap.get(pl), ownAgeSeconds);
-        return `<span title="${esc(tooltip)}" style="text-decoration:underline dotted;text-decoration-color:var(--text-faint);cursor:help;">${esc(displayName)}</span>${esc(ageSuffix)}`;
+        return `${esc(displayName)}<span class="help-bubble" tabindex="0">?<span class="tip">${esc(tooltip)}</span></span>${esc(ageSuffix)}`;
       }
       return esc(pl + ageSuffix);
     }).join(', ') || '(empty)';
