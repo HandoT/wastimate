@@ -403,6 +403,9 @@
   .series-chip.active{border-color:var(--amber);color:var(--amber);}
 
   .chart-wrap{background:var(--panel);border:1px solid var(--border-soft);border-radius:var(--radius);padding:20px;margin-top:8px;}
+  .chart-export-bar{display:flex;gap:6px;justify-content:flex-end;margin-top:4px;}
+  .chart-export-bar button{font-family:var(--mono);font-size:10.5px;background:none;border:1px solid var(--border-soft);border-radius:var(--radius);color:var(--text-dim);padding:2px 8px;cursor:pointer;}
+  .chart-export-bar button:hover{color:var(--amber);border-color:var(--amber);}
   table.data-table{border-collapse:collapse;width:100%;font-family:var(--mono);font-size:11.5px;margin-top:20px;}
   table.data-table th, table.data-table td{border:1px solid var(--border-soft);padding:6px 9px;text-align:right;}
   table.data-table th{background:var(--panel-alt);color:var(--text-dim);font-weight:500;position:sticky;top:0;}
@@ -955,6 +958,24 @@
               </div>
               <div id="pkg-excel-status" class="empty-hint"></div>
               <div id="pkg-excel-preview"></div>
+              <div class="field checkbox" style="margin-top:10px;">
+                <input type="checkbox" id="pkg-excel-uncertainty-enable" onchange="toggleExcelUncertaintyFields()">
+                <label for="pkg-excel-uncertainty-enable">Apply uncertainty to imported nuclide values</label>
+                <span class="help-bubble" tabindex="0">?<span class="tip">Converts every imported nuclide value into a distribution, using the deterministic imported value as the mean &mdash; a quick way to set up a Monte Carlo baseline without hand-editing every nuclide afterward. Values that are zero or negative are left as-is, since a distribution needs a positive mean here.</span></span>
+              </div>
+              <div class="field-grid" id="pkg-excel-uncertainty-fields" style="display:none;margin-top:8px;">
+                <div class="field"><label>Distribution type</label>
+                  <select id="pkg-excel-uncertainty-type">
+                    <option value="normal">Normal</option>
+                    <option value="uniform">Uniform</option>
+                    <option value="lognormal">Log-normal</option>
+                    <option value="triangular">Triangular</option>
+                  </select>
+                </div>
+                <div class="field"><label>Relative error (%) <span class="help-bubble" tabindex="0">?<span class="tip">e.g. 10 means the distribution spans roughly &plusmn;10% around each imported value.</span></span></label>
+                  <input type="number" id="pkg-excel-uncertainty-relerr" value="10" min="0" step="1">
+                </div>
+              </div>
               <button class="ghost small" style="margin-top:10px;" onclick="copyPackageLabels(this)">copy all package labels</button>
             </div>
           </div>
@@ -1022,6 +1043,7 @@
               <button class="primary" onclick="downloadXML()">Download</button>
             </div>
             <p class="empty-hint" id="xml-load-status-network" style="margin-top:6px;"></p>
+            <div id="xml-sanity-warnings" style="display:none;margin-top:12px;padding:10px 12px;border:1px solid var(--danger);border-radius:var(--radius);background:rgba(169,64,45,0.08);font-family:var(--mono);font-size:11.5px;color:var(--text);"></div>
           </div>
         </div>
   </div>
@@ -1072,16 +1094,19 @@
               <div class="subblock-title">Package count</div>
               <p class="empty-hint" id="mc-stats-package_count" style="margin-top:0;"></p>
               <canvas id="mc-chart-package_count" height="140"></canvas>
+              <div class="chart-export-bar"><button onclick="exportChartPNG(()=>mcChartInstances.package_count,'package_count_distribution')">PNG</button><button onclick="exportChartSVG(()=>mcChartInstances.package_count,'package_count_distribution')">SVG</button></div>
             </div>
             <div class="subblock" style="margin-top:0;padding-top:0;border-top:none;">
               <div class="subblock-title">Mass</div>
               <p class="empty-hint" id="mc-stats-mass" style="margin-top:0;"></p>
               <canvas id="mc-chart-mass" height="140"></canvas>
+              <div class="chart-export-bar"><button onclick="exportChartPNG(()=>mcChartInstances.mass,'mass_distribution')">PNG</button><button onclick="exportChartSVG(()=>mcChartInstances.mass,'mass_distribution')">SVG</button></div>
             </div>
             <div class="subblock" style="margin-top:0;padding-top:0;border-top:none;">
               <div class="subblock-title">Volume</div>
               <p class="empty-hint" id="mc-stats-volume" style="margin-top:0;"></p>
               <canvas id="mc-chart-volume" height="140"></canvas>
+              <div class="chart-export-bar"><button onclick="exportChartPNG(()=>mcChartInstances.volume,'volume_distribution')">PNG</button><button onclick="exportChartSVG(()=>mcChartInstances.volume,'volume_distribution')">SVG</button></div>
             </div>
           </div>
         </div>
@@ -1095,7 +1120,7 @@
               <option value="volume">Volume</option>
             </select>
           </div>
-          <div class="chart-wrap"><canvas id="mc-compare-chart" height="90"></canvas></div>
+          <div class="chart-wrap"><canvas id="mc-compare-chart" height="90"></canvas><div class="chart-export-bar"><button onclick="exportChartPNG(()=>mcChartInstances.compare,'node_comparison')">PNG</button><button onclick="exportChartSVG(()=>mcChartInstances.compare,'node_comparison')">SVG</button></div></div>
         </div>
 
         <div id="mc-timeseries-view" style="display:none;">
@@ -1117,8 +1142,18 @@
             <button class="mc-view-btn active" id="mc-ts-mode-alltrials-btn" onclick="setMcTimeSeriesMode('alltrials')">All trials</button>
             <button class="mc-view-btn" id="mc-ts-mode-aggregated-btn" onclick="setMcTimeSeriesMode('aggregated')">Aggregated (mean &plusmn; band)</button>
           </div>
-          <p class="empty-hint" style="margin-top:0;" id="mc-ts-hint">Every trial plotted faintly &mdash; hover a line to bring it forward. Where many trials agree, the overlapping lines build up into a visibly darker "trend zone".</p>
-          <div class="chart-wrap"><canvas id="mc-ts-chart" height="90"></canvas></div>
+          <p class="empty-hint" style="margin-top:0;" id="mc-ts-hint">Every trial plotted faintly &mdash; hover a line to see its values, click it to look up its parameters. Where many trials agree, the overlapping lines build up into a visibly darker "trend zone".</p>
+          <div class="chart-wrap"><canvas id="mc-ts-chart" height="90"></canvas><div class="chart-export-bar"><button onclick="exportChartPNG(()=>mcChartInstances.timeseries,'time_series')">PNG</button><button onclick="exportChartSVG(()=>mcChartInstances.timeseries,'time_series')">SVG</button></div></div>
+          <div style="margin-top:10px;">
+            <a href="javascript:void(0)" id="mc-trial-lookup-toggle" onclick="toggleTrialLookup()" style="display:none;font-family:var(--mono);font-size:11.5px;color:var(--text-dim);">&#128269; Look up a trial's parameters</a>
+            <div id="mc-trial-lookup-panel" style="display:none;margin-top:10px;">
+              <div class="field" style="max-width:160px;">
+                <label>Trial number</label>
+                <input type="number" min="0" id="mc-trial-lookup-input" oninput="renderTrialLookup()">
+              </div>
+              <div id="mc-trial-lookup-result" style="margin-top:8px;"></div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1140,7 +1175,7 @@
         <div class="field" style="margin-bottom:6px;"><label>Series <span class="help-bubble" tabindex="0">?<span class="tip">Tick which node/package series to plot and include in the snapshot below.</span></span></label></div>
         <div class="series-list" id="series-list"></div>
 
-        <div class="chart-wrap"><canvas id="chart" height="90"></canvas></div>
+        <div class="chart-wrap"><canvas id="chart" height="90"></canvas><div class="chart-export-bar"><button onclick="exportChartPNG(()=>chartInstance,'results_chart')">PNG</button><button onclick="exportChartSVG(()=>chartInstance,'results_chart')">SVG</button></div></div>
 
         <div class="subblock">
           <div class="subblock-title">Snapshot at a single timestep</div>
@@ -1263,7 +1298,7 @@ let networkRenderScheduled = false;
 let networkViewport = null; // {x, y, w, h}
 let networkViewportLocked = false;
 let networkGroups = []; // {id, x, y, w, h, label, color}
-let universeSettings = { stepsize:'1', stepunit:'a', cores:'1', refdate:'', solver:'cram16', showAdvanced:false, mcTrials:'100', mcSampling:'random', mcSeed:'' };
+let universeSettings = { stepsize:'1', stepunit:'a', cores:'1', refdate:'', solver:'cram16', showAdvanced:false, mcTrials:'100', mcSampling:'random', mcSeed:'', mcKeepFiles:false };
 
 /* ===================== helpers ===================== */
 function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -1437,6 +1472,7 @@ function monteCarloSettingsHtml(loc){
       </div>
       <div class="field"><label>Random seed <span class="help-bubble" tabindex="0">?<span class="tip">Set this to make the same set of trials reproducible across runs. Leave blank for a different sample each time.</span></span></label>
         <input type="number" id="mc-seed-${loc}" placeholder="random" value="${esc(universeSettings.mcSeed)}" oninput="updateUniverseSettingSilent('mcSeed',this.value,'${loc}')" onblur="updateUniverseSetting('mcSeed',this.value)"></div>
+      <div class="field checkbox"><input type="checkbox" id="mc-keep-${loc}" ${universeSettings.mcKeepFiles?'checked':''} onchange="updateUniverseSetting('mcKeepFiles',this.checked)"><label for="mc-keep-${loc}">Keep individual trial files</label>${help('By default, run_monte_carlo deletes each trial\'s own results/state files once everything is combined into the one aggregated file. Check this to keep them around too.')}</div>
     </div>`;
 }
 function renderMonteCarloSettings(){
@@ -1450,6 +1486,31 @@ function updateMonteCarloPanelVisibility(){
   const wasHidden = block.style.display === 'none';
   block.style.display = shouldShow ? '' : 'none';
   if(shouldShow && wasHidden) renderMonteCarloSettings();
+}
+function computeSanityWarnings(){
+  const warnings = [];
+  if(packages.length === 0){
+    warnings.push('No packages defined — there\'s no waste inventory for the simulation to work with.');
+  } else {
+    const noNuclides = packages.filter(p => !(p.nuclides||[]).some(n=>n.name));
+    if(noNuclides.length) warnings.push(`${noNuclides.length} package${noNuclides.length>1?'s':''} with no nuclides: ${noNuclides.map(p=>p.label||'(unlabeled)').join(', ')}.`);
+  }
+  if(nodes.length === 0) warnings.push('No nodes defined — there\'s nowhere for packages to be located.');
+  if(orders.length === 0 && sources.length === 0) warnings.push('No orders or sources defined — nothing will move or introduce packages during the simulation.');
+  if(actions.length === 0) warnings.push('No actions in the universe — add at least a progress_time action, or the simulation won\'t actually advance.');
+  return warnings;
+}
+function renderSanityWarnings(){
+  const warnings = computeSanityWarnings();
+  const el = document.getElementById('xml-sanity-warnings');
+  if(!el) return;
+  if(!warnings.length){
+    el.style.display = 'none';
+    el.innerHTML = '';
+    return;
+  }
+  el.style.display = '';
+  el.innerHTML = `<strong style="color:var(--danger);">This model may not be ready to run yet:</strong><ul style="margin:6px 0 0 18px;padding:0;">${warnings.map(w=>`<li>${esc(w)}</li>`).join('')}</ul>`;
 }
 // Tooltips are positioned in JS (not pure CSS :hover) so they can be clamped to the viewport --
 // a centered-above-the-icon tooltip clips off-screen for any bubble near the right edge, and a
@@ -1854,9 +1915,40 @@ function toggleExcelRow(i,checked){
   if(checked) excelSelectedRows.add(i); else excelSelectedRows.delete(i);
   document.querySelector('#pkg-excel-preview button.primary').textContent = `Add ${excelSelectedRows.size} selected as packages`;
 }
+function toggleExcelUncertaintyFields(){
+  const enabled = document.getElementById('pkg-excel-uncertainty-enable').checked;
+  document.getElementById('pkg-excel-uncertainty-fields').style.display = enabled ? '' : 'none';
+}
+// Converts a deterministic value into a distribution string using that value as the mean and
+// a relative error (as a percentage of the mean) to size the spread. For lognormal, the
+// conversion solves for the underlying normal's mu/sigma via the standard method-of-moments
+// relationship so the LOGNORMAL distribution's own mean (not the underlying normal's) lands
+// on the target value, matching the same "mean + relative error" mental model as the other
+// three types rather than requiring the underlying-normal parameters directly.
+function buildDistributionFromMeanAndRelativeError(mean, relErrorPercent, distType){
+  const m = Number(mean);
+  if(!(m > 0) || !Number.isFinite(m)) return String(mean); // zero/negative/non-numeric -- leave as-is, a distribution needs a positive mean here
+  const r = Math.max(0, Number(relErrorPercent) || 0) / 100;
+  if(distType === 'uniform'){
+    return `uniform(${m*(1-r)}, ${m*(1+r)})`;
+  }
+  if(distType === 'triangular'){
+    return `triangular(${m*(1-r)}, ${m}, ${m*(1+r)})`;
+  }
+  if(distType === 'lognormal'){
+    const sigma = Math.sqrt(Math.log(1 + r*r));
+    const mu = Math.log(m) - (sigma*sigma)/2;
+    return `lognormal(${mu}, ${sigma})`;
+  }
+  // normal
+  return `normal(${m}, ${m*r})`;
+}
 function commitExcelPackages(){
   const overrideRadioactiveSel = document.getElementById('pkg-excel-override-radioactive').value;
   const overrideDecayChainSel = document.getElementById('pkg-excel-override-decay_chain').value;
+  const applyUncertainty = document.getElementById('pkg-excel-uncertainty-enable').checked;
+  const uncertaintyType = document.getElementById('pkg-excel-uncertainty-type').value;
+  const uncertaintyRelErr = document.getElementById('pkg-excel-uncertainty-relerr').value;
   excelParsedRows.forEach((r,i)=>{
     if(!excelSelectedRows.has(i) || r.label.startsWith('(sheet')) return;
     packages.push({
@@ -1864,7 +1956,10 @@ function commitExcelPackages(){
       radioactive: overrideRadioactiveSel==='' ? true : overrideRadioactiveSel==='true',
       decay_chain: overrideDecayChainSel==='' ? true : overrideDecayChainSel==='true',
       packageDate: toDatetimeLocalString(r.measuredOn), showAdvanced:true,
-      nuclides: Object.entries(r.inventory).map(([name,value])=>({name, value}))
+      nuclides: Object.entries(r.inventory).map(([name,value])=>({
+        name,
+        value: applyUncertainty ? buildDistributionFromMeanAndRelativeError(value, uncertaintyRelErr, uncertaintyType) : value
+      }))
     });
   });
   excelParsedRows = []; excelSelectedRows = new Set();
@@ -1974,7 +2069,7 @@ function renderPackages(){
   buildXML();
 }
 function addPackage(){
-  const p = {id:nid(), label:'Package'+(packages.length+1), mass:'', volume:'', mode:'atoms', radioactive:true, decay_chain:true, packageDate:'', showAdvanced:false, secularEquilibrium:'', nuclides:[{name:'',value:''}]};
+  const p = {id:nid(), label:'Package'+(packages.length+1), mass:'', volume:'', mode:'activity', radioactive:true, decay_chain:true, packageDate:'', showAdvanced:false, secularEquilibrium:'', nuclides:[{name:'',value:''}]};
   packages.push(p);
   // Append just the new card instead of rebuilding every existing card -- rebuilding the whole
   // list on every add made creating N packages an O(N^2) operation, which is what made adding
@@ -3102,8 +3197,11 @@ function buildXML(){
     lines.push('  <orders>');
     orders.forEach(o=>{
       const attrs = [`label="${xmlEscAttr(o.label)}"`, `homenode="${xmlEscAttr(nodeLabelById(o.homenode))}"`, `mode="${xmlEscAttr(o.mode)}"`,
-        `magnitude="${xmlEscAttr(o.magnitude)}"`, `direction="${xmlEscAttr(o.direction)}"`, `mixratio="${xmlEscAttr(o.mixratio)}"`,
-        `crumbs="${o.crumbs?'True':'False'}"`, `rate="${xmlEscAttr(o.rate)}"`];
+        `magnitude="${xmlEscAttr(o.magnitude)}"`];
+      if(o.showAdvanced){
+        attrs.push(`direction="${xmlEscAttr(o.direction)}"`, `mixratio="${xmlEscAttr(o.mixratio)}"`,
+          `crumbs="${o.crumbs?'True':'False'}"`, `rate="${xmlEscAttr(o.rate)}"`);
+      }
       if(o.remaindernode) attrs.push(`remaindernode="${xmlEscAttr(nodeLabelById(o.remaindernode))}"`);
       lines.push(`    <order ${attrs.join(' ')}>`);
       lines.push(`      <ordernodes>${xmlEscAttr((o.ordernodes||[]).map(nodeLabelById).join(' '))}</ordernodes>`);
@@ -3155,7 +3253,7 @@ function buildXML(){
   const cores = universeSettings.cores || 1;
   const hasDist = modelHasAnyDistribution();
   const mcAttrs = hasDist
-    ? ` mc_trials="${xmlEscAttr(universeSettings.mcTrials||100)}" mc_sampling="${xmlEscAttr(universeSettings.mcSampling||'random')}"${universeSettings.mcSeed ? ` mc_seed="${xmlEscAttr(universeSettings.mcSeed)}"` : ''}`
+    ? ` mc_trials="${xmlEscAttr(universeSettings.mcTrials||100)}" mc_sampling="${xmlEscAttr(universeSettings.mcSampling||'random')}"${universeSettings.mcSeed ? ` mc_seed="${xmlEscAttr(universeSettings.mcSeed)}"` : ''}${universeSettings.mcKeepFiles ? ` mc_keep_files="true"` : ''}`
     : '';
   lines.push(`  <universe num_of_cores="${xmlEscAttr(cores)}" step_size="${xmlEscAttr(stepsize)}" step_unit="${xmlEscAttr(stepunit)}" solver="${xmlEscAttr(universeSettings.solver||'cram16')}"${mcAttrs}>`);
   const anyDisabled = orders.some(o=>o.disabled) || sources.some(s=>s.disabled);
@@ -3247,6 +3345,7 @@ function buildXML(){
   const netPreview = document.getElementById('xml-preview-network');
   if(netPreview) netPreview.textContent = xml;
   updateMonteCarloPanelVisibility();
+  renderSanityWarnings();
   if(typeof scheduleNetworkRender === 'function') scheduleNetworkRender();
   return xml;
 }
@@ -3323,7 +3422,7 @@ function importModelXML(xmlText){
     const secularEquilibrium = pe.getAttribute('secular_equilibrium') || '';
     newPackages.push({
       id:nid(), label: pe.getAttribute('label')||'', mass: pe.getAttribute('mass')??'', volume: pe.getAttribute('volume')??'',
-      mode: pe.getAttribute('mode')||'atoms', radioactive, decay_chain,
+      mode: pe.getAttribute('mode')||'activity', radioactive, decay_chain,
       packageDate: '', dateSecondsOverride: dateAttr!==null ? parseFloat(dateAttr) : undefined,
       secularEquilibrium, secularEquilibriumMode: (secularEquilibrium && secularEquilibrium!=='all') ? 'specific' : '',
       showAdvanced: (dateAttr!==null || !radioactive || !decay_chain || !!secularEquilibrium),
@@ -3368,7 +3467,9 @@ function importModelXML(xmlText){
       mode: oe.getAttribute('mode')||'transfer', magnitude: oe.getAttribute('magnitude')||1,
       direction: oe.getAttribute('direction')||'old', mixratio: oe.getAttribute('mixratio')||0.5,
       crumbs: (oe.getAttribute('crumbs')||'False').toLowerCase()==='true',
-      rate: oe.getAttribute('rate')||0, showAdvanced:false, disabled:false, criteria, conditions: parseConditionsEl(oe, criteria.length),
+      rate: oe.getAttribute('rate')||0,
+      showAdvanced: oe.hasAttribute('direction') || oe.hasAttribute('mixratio') || oe.hasAttribute('crumbs') || oe.hasAttribute('rate') || !!(nodeIdByLabelImport[oe.getAttribute('remaindernode')]),
+      disabled:false, criteria, conditions: parseConditionsEl(oe, criteria.length),
       packageOut:'', packageMass:'', sortNode:''
     };
     if(instrEl){
@@ -3381,7 +3482,7 @@ function importModelXML(xmlText){
 
   // actions (inside <universe>)
   const universeEl = root.querySelector(':scope > universe');
-  let uCores='1', uStepSize='1', uStepUnit='a', uSolver='cram16', uMcTrials='100', uMcSampling='random', uMcSeed='';
+  let uCores='1', uStepSize='1', uStepUnit='a', uSolver='cram16', uMcTrials='100', uMcSampling='random', uMcSeed='', uMcKeepFiles=false;
   if(universeEl){
     uCores = universeEl.getAttribute('num_of_cores') || '1';
     uStepSize = universeEl.getAttribute('step_size') || '1';
@@ -3390,6 +3491,7 @@ function importModelXML(xmlText){
     uMcTrials = universeEl.getAttribute('mc_trials') || '100';
     uMcSampling = universeEl.getAttribute('mc_sampling') || 'random';
     uMcSeed = universeEl.getAttribute('mc_seed') || '';
+    uMcKeepFiles = (universeEl.getAttribute('mc_keep_files')||'').toLowerCase()==='true';
     // The universe element's own direct text (before its first child <action>) is a shared
     // include-list across nodes/orders/sources -- mirrors ElementTree's .text (only text before
     // the first child element), not the DOM's textContent (which would also pick up whitespace
@@ -3465,6 +3567,7 @@ function importModelXML(xmlText){
   universeSettings.mcTrials = uMcTrials;
   universeSettings.mcSampling = uMcSampling;
   universeSettings.mcSeed = uMcSeed;
+  universeSettings.mcKeepFiles = uMcKeepFiles;
   renderUniverseSettings();
 
   renderPackages(); renderNodes(); renderSources(); renderOrders(); renderActions();
@@ -3536,6 +3639,10 @@ function getTimeseriesRecords(data){
   if(data && Array.isArray(data.records) && data.records.length && 'variable' in data.records[0] && 'time' in data.records[0] && 'series' in data.records[0]) return data.records;
   return null;
 }
+function getParameterRecords(data){
+  if(data && data.parameters && Array.isArray(data.parameters.records)) return data.parameters.records;
+  return null;
+}
 function isMonteCarloResultsJson(data){ return getSnapshotRecords(data) !== null; }
 function isMonteCarloTimeseriesJson(data){ return getTimeseriesRecords(data) !== null; }
 function handleFile(file){
@@ -3565,6 +3672,7 @@ function handleFile(file){
       document.getElementById('mc-view-timeseries-btn').style.display = hasTimeseries ? '' : 'none';
       if(hasSnapshot) loadMonteCarloResults(data);
       if(hasTimeseries) loadMonteCarloTimeseries(data);
+      loadMonteCarloParameters(data);
       setMonteCarloView(hasSnapshot ? 'pernode' : 'timeseries');
       return;
     }
@@ -3589,17 +3697,45 @@ document.getElementById('chart-type').addEventListener('change', renderChart);
 
 let mcData = [];
 let mcTimeseriesData = [];
+let mcParametersData = []; // [{trial, params:{label:value}}] -- each trial's own sampled distribution values
 let mcTsMode = 'alltrials';
 let mcChartInstances = {};
 let mcAllTrialIds = []; // every distinct trial id seen across mcData/mcTimeseriesData, sorted
 let mcTrialLimit = Infinity; // how many of those (in order) to include in the charts
+let mcTimeseriesIndex = new Map(); // `${variable}|${series}|${nuclide||''}` -> array of records -- built once per load so every render/dropdown-populate is a direct lookup instead of an O(n) scan over potentially hundreds of thousands of rows
+let mcTsVariableToSeries = new Map(); // variable -> Set<series>
+let mcTsVarSeriesToNuclides = new Map(); // `${variable}|${series}` -> Set<nuclide>
+function buildMcTimeseriesIndex(){
+  mcTimeseriesIndex = new Map();
+  mcTsVariableToSeries = new Map();
+  mcTsVarSeriesToNuclides = new Map();
+  for(const r of mcTimeseriesData){
+    const nucKey = r.nuclide===null ? '' : r.nuclide;
+    const key = `${r.variable}|${r.series}|${nucKey}`;
+    let arr = mcTimeseriesIndex.get(key);
+    if(!arr){ arr = []; mcTimeseriesIndex.set(key, arr); }
+    arr.push(r);
+
+    let seriesSet = mcTsVariableToSeries.get(r.variable);
+    if(!seriesSet){ seriesSet = new Set(); mcTsVariableToSeries.set(r.variable, seriesSet); }
+    seriesSet.add(r.series);
+
+    if(r.nuclide !== null){
+      const vsKey = `${r.variable}|${r.series}`;
+      let nucSet = mcTsVarSeriesToNuclides.get(vsKey);
+      if(!nucSet){ nucSet = new Set(); mcTsVarSeriesToNuclides.set(vsKey, nucSet); }
+      nucSet.add(r.nuclide);
+    }
+  }
+}
 function loadMonteCarloTimeseries(data){
   mcTimeseriesData = getTimeseriesRecords(data).map(r=>({
     trial: Number(r.trial), variable: String(r.variable), series: String(r.series),
     nuclide: (r.nuclide===null || r.nuclide===undefined) ? null : String(r.nuclide),
     time: Number(r.time), value: Number(r.value)
   }));
-  const variables = Array.from(new Set(mcTimeseriesData.map(r=>r.variable)));
+  buildMcTimeseriesIndex();
+  const variables = Array.from(mcTsVariableToSeries.keys());
   const varSelect = document.getElementById('mc-ts-variable-select');
   if(varSelect) varSelect.innerHTML = variables.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
   refreshMcTrialLimitControl();
@@ -3607,7 +3743,7 @@ function loadMonteCarloTimeseries(data){
 }
 function onMcTsVariableChange(){
   const variable = document.getElementById('mc-ts-variable-select').value;
-  const series = Array.from(new Set(mcTimeseriesData.filter(r=>r.variable===variable).map(r=>r.series)));
+  const series = Array.from(mcTsVariableToSeries.get(variable) || []);
   const seriesSelect = document.getElementById('mc-ts-series-select');
   if(seriesSelect) seriesSelect.innerHTML = series.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('');
   onMcTsSeriesChange();
@@ -3615,7 +3751,7 @@ function onMcTsVariableChange(){
 function onMcTsSeriesChange(){
   const variable = document.getElementById('mc-ts-variable-select').value;
   const series = document.getElementById('mc-ts-series-select').value;
-  const nuclides = Array.from(new Set(mcTimeseriesData.filter(r=>r.variable===variable && r.series===series && r.nuclide!==null).map(r=>r.nuclide)));
+  const nuclides = Array.from(mcTsVarSeriesToNuclides.get(`${variable}|${series}`) || []);
   const nuclideRow = document.getElementById('mc-ts-nuclide-row');
   if(nuclides.length){
     nuclideRow.style.display = '';
@@ -3641,8 +3777,8 @@ function renderMonteCarloTimeSeries(){
   const nuclideSelect = document.getElementById('mc-ts-nuclide-select');
   const wantNuclide = nuclideRow && nuclideRow.style.display !== 'none' ? nuclideSelect.value : null;
   const visible = mcVisibleTrialSet();
-  const rows = mcTimeseriesData.filter(r=>r.variable===varSelect.value && r.series===seriesSelect.value &&
-    (wantNuclide ? r.nuclide===wantNuclide : r.nuclide===null) && visible.has(r.trial));
+  const key = `${varSelect.value}|${seriesSelect.value}|${wantNuclide || ''}`;
+  const rows = (mcTimeseriesIndex.get(key) || []).filter(r=>visible.has(r.trial));
   if(mcTsMode === 'aggregated') renderMcTimeSeriesAggregated(rows, varSelect.value);
   else renderMcTimeSeriesAllTrials(rows, varSelect.value);
 }
@@ -3657,6 +3793,7 @@ function renderMcTimeSeriesAllTrials(rows, variableLabel){
     const pts = rows.filter(r=>r.trial===trial).sort((a,b)=>a.time-b.time).map(r=>({x:r.time, y:r.value}));
     return {
       label: `trial ${trial}`,
+      trial: trial,
       data: pts,
       borderColor: 'rgba(198,127,30,0.16)',
       borderWidth: 1.25,
@@ -3675,9 +3812,15 @@ function renderMcTimeSeriesAllTrials(rows, variableLabel){
     data: { datasets },
     options: {
       interaction: { mode: 'dataset', intersect: true },
-      plugins: { legend: { display: false } },
+      animation: false, // dataset count here scales with the trial-limit slider; animating potentially hundreds of lines is the main cost once many trials are shown
+      plugins: { legend: { display: false }, tooltip: { enabled: false, external: chartExternalTooltipHandler } },
       scales: { x: { type: 'linear', title: { display: true, text: 'time' } },
-                 y: { title: { display: true, text: variableLabel } } }
+                 y: { title: { display: true, text: variableLabel } } },
+      onClick: (evt, elements, chart) => {
+        if(!elements.length || !mcParametersData.length) return;
+        const ds = chart.data.datasets[elements[0].datasetIndex];
+        if(ds && ds.trial !== undefined) showTrialLookup(ds.trial);
+      }
     }
   });
 }
@@ -3718,18 +3861,80 @@ function renderMcTimeSeriesAggregated(rows, variableLabel){
       ]
     },
     options: {
-      plugins: { legend: { display: true, labels: { boxHeight: 8, filter: item => item.text !== 'upper' } } },
+      plugins: { legend: { display: true, labels: { boxHeight: 8, filter: item => item.text !== 'upper' } },
+                 tooltip: { enabled: false, external: chartExternalTooltipHandler, filter: item => item.dataset.label !== 'upper' } },
       scales: { x: { type: 'linear', title: { display: true, text: 'time' } },
                  y: { title: { display: true, text: variableLabel } } }
     }
   });
+}
+function loadMonteCarloParameters(data){
+  const recs = getParameterRecords(data);
+  mcParametersData = recs ? recs.map(r=>({trial: Number(r.trial), params: r.params||{}})) : [];
+  // Reset any lookup left open from a previously loaded file.
+  const panel = document.getElementById('mc-trial-lookup-panel');
+  if(panel) panel.style.display = 'none';
+  const input = document.getElementById('mc-trial-lookup-input');
+  if(input) input.value = '';
+  const result = document.getElementById('mc-trial-lookup-result');
+  if(result) result.innerHTML = '';
+  const toggle = document.getElementById('mc-trial-lookup-toggle');
+  if(toggle) toggle.style.display = mcParametersData.length ? '' : 'none';
+}
+function toggleTrialLookup(){
+  const panel = document.getElementById('mc-trial-lookup-panel');
+  if(!panel) return;
+  panel.style.display = (panel.style.display === 'none') ? '' : 'none';
+}
+function formatParamValue(v){
+  if(typeof v !== 'number') return esc(String(v));
+  return (Math.abs(v)>=1000 || (Math.abs(v)<0.01 && v!==0)) ? v.toExponential(3) : String(v);
+}
+function renderTrialLookup(){
+  const input = document.getElementById('mc-trial-lookup-input');
+  const resultEl = document.getElementById('mc-trial-lookup-result');
+  if(!input || !resultEl) return;
+  if(input.value === ''){ resultEl.innerHTML = ''; return; }
+  const trialNum = parseInt(input.value, 10);
+  if(isNaN(trialNum)){ resultEl.innerHTML = ''; return; }
+  const rec = mcParametersData.find(r=>r.trial===trialNum);
+  if(!rec){
+    resultEl.innerHTML = `<p class="empty-hint" style="margin:8px 0 0 0;">No parameter data for trial ${trialNum}.</p>`;
+    return;
+  }
+  const entries = Object.entries(rec.params);
+  if(!entries.length){
+    resultEl.innerHTML = `<p class="empty-hint" style="margin:8px 0 0 0;">Trial ${trialNum} had no distributed parameters recorded.</p>`;
+    return;
+  }
+  const rows = entries.map(([label,val])=>`<tr><td>${esc(label)}</td><td>${formatParamValue(val)}</td></tr>`).join('');
+  resultEl.innerHTML = `<table class="data-table" style="margin-top:8px;"><thead><tr><th>Parameter</th><th>Sampled value</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+function showTrialLookup(trialNum){
+  const panel = document.getElementById('mc-trial-lookup-panel');
+  const input = document.getElementById('mc-trial-lookup-input');
+  if(!panel || !input) return;
+  panel.style.display = '';
+  input.value = trialNum;
+  renderTrialLookup();
+  if(typeof panel.scrollIntoView === 'function') panel.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+let mcSnapshotIndex = new Map(); // node -> array of records
+function buildMcSnapshotIndex(){
+  mcSnapshotIndex = new Map();
+  for(const r of mcData){
+    let arr = mcSnapshotIndex.get(r.node);
+    if(!arr){ arr = []; mcSnapshotIndex.set(r.node, arr); }
+    arr.push(r);
+  }
 }
 function loadMonteCarloResults(data){
   mcData = getSnapshotRecords(data).map(r=>({
     trial: Number(r.trial), node: String(r.node),
     package_count: Number(r.package_count), mass: Number(r.mass), volume: Number(r.volume)
   }));
-  const nodes = Array.from(new Set(mcData.map(r=>r.node)));
+  buildMcSnapshotIndex();
+  const nodes = Array.from(mcSnapshotIndex.keys());
   const nodeSelect = document.getElementById('mc-node-select');
   nodeSelect.innerHTML = nodes.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
   refreshMcTrialLimitControl();
@@ -3747,8 +3952,8 @@ function refreshMcTrialLimitControl(){
   if(!slider) return;
   slider.min = 1;
   slider.max = Math.max(1, total);
-  slider.value = Math.max(1, total); // default to showing every trial on a fresh load
-  mcTrialLimit = Math.max(1, total);
+  slider.value = 1; // default to a single trial -- rendering hundreds/thousands by default is slow; the slider lets you opt into more
+  mcTrialLimit = 1;
   updateMcTrialLimitLabel();
 }
 function updateMcTrialLimitLabel(){
@@ -3810,7 +4015,7 @@ function renderMonteCarloDistributions(){
   const nodeSelect = document.getElementById('mc-node-select');
   const node = nodeSelect ? nodeSelect.value : null;
   const visible = mcVisibleTrialSet();
-  const rows = mcData.filter(r=>r.node===node && visible.has(r.trial));
+  const rows = (mcSnapshotIndex.get(node) || []).filter(r=>visible.has(r.trial));
   ['package_count','mass','volume'].forEach(key=>{
     const values = rows.map(r=>r[key]);
     if(!values.length) return;
@@ -3827,7 +4032,7 @@ function renderMonteCarloDistributions(){
       type: 'bar',
       data: { labels, datasets: [{ data: counts, backgroundColor: cssVar('--amber') || '#c67f1e' }] },
       options: {
-        plugins: { legend: { display: false } },
+        plugins: { legend: { display: false }, tooltip: { enabled: false, external: chartExternalTooltipHandler } },
         scales: { y: { title: { display: true, text: 'trials' }, beginAtZero: true, ticks: { precision: 0 } },
                    x: { title: { display: true, text: key } } }
       }
@@ -3846,7 +4051,7 @@ function setMonteCarloView(view){
 }
 function renderMonteCarloComparison(){
   const variable = document.getElementById('mc-compare-variable-select').value;
-  const nodes = Array.from(new Set(mcData.map(r=>r.node)));
+  const nodes = Array.from(mcSnapshotIndex.keys());
   const canvas = document.getElementById('mc-compare-chart');
   if(!canvas) return;
 
@@ -3855,7 +4060,7 @@ function renderMonteCarloComparison(){
   const band1 = [], band2 = [], band3 = [];
   const visible = mcVisibleTrialSet();
   nodes.forEach((node, idx)=>{
-    const values = mcData.filter(r=>r.node===node && visible.has(r.trial)).map(r=>r[variable]);
+    const values = (mcSnapshotIndex.get(node) || []).filter(r=>visible.has(r.trial)).map(r=>r[variable]);
     if(!values.length) return;
     const stats = computeStats(values);
     // Deliberately no jitter -- every trial sits at the exact same x as its node, so any
@@ -3880,9 +4085,10 @@ function renderMonteCarloComparison(){
       ]
     },
     options: {
+      animation: false, // the raw-points dataset scales with trial count x node count
       plugins: {
         legend: { display: true, labels: { boxHeight: 8, filter: item => item.text !== 'trials' } },
-        tooltip: { callbacks: { title: (items)=> nodes[Math.round(items[0].parsed.x)] ?? '' } }
+        tooltip: { enabled: false, external: chartExternalTooltipHandler, callbacks: { title: (items)=> nodes[Math.round(items[0].parsed.x)] ?? '' } }
       },
       scales: {
         x: { type: 'linear', min: -0.5, max: Math.max(0, nodes.length-0.5),
@@ -3973,6 +4179,177 @@ function renderTable(){
   tbl.innerHTML = html;
 }
 function cssVar(name){ return getComputedStyle(document.body).getPropertyValue(name).trim(); }
+// Chart.js's default tooltip is drawn directly on the canvas, which can't wrap text or
+// scroll -- a tooltip with many lines (many series selected, many SD bands, etc.) either
+// gets cut off at the canvas edge or overflows it with no way to see the rest. Using
+// Chart.js's "external" tooltip mode instead renders a real HTML element, which can wrap,
+// scroll if it's genuinely too tall, and stay clamped within the viewport like any other
+// floating UI in this tool.
+function getOrCreateChartTooltipEl(){
+  let el = document.getElementById('chart-tooltip-el');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'chart-tooltip-el';
+    el.style.position = 'fixed';
+    el.style.pointerEvents = 'none';
+    el.style.zIndex = '10000';
+    el.style.background = 'var(--panel-alt)';
+    el.style.border = '1px solid var(--border)';
+    el.style.borderRadius = 'var(--radius)';
+    el.style.padding = '8px 10px';
+    el.style.fontFamily = 'var(--mono)';
+    el.style.fontSize = '11px';
+    el.style.lineHeight = '1.5';
+    el.style.color = 'var(--text)';
+    el.style.maxWidth = '90vw';
+    el.style.boxShadow = '0 8px 24px rgba(0,0,0,.35)';
+    el.style.display = 'none';
+    document.body.appendChild(el);
+  }
+  return el;
+}
+function exportChartPNG(getChart, filename){
+  const chart = getChart();
+  if(!chart) return;
+  const url = chart.toBase64Image('image/png', 1.0);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${filename}.png`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+// Builds a genuine vector chart -- not a raster PNG embedded in an SVG wrapper -- by reading
+// each dataset's actual rendered pixel positions straight from Chart.js's own element and
+// scale APIs (element.getProps, scale.getPixelForTick), so the output matches what's on
+// screen without needing to reimplement Chart.js's own layout/scale math.
+function chartToSVGString(chart){
+  const width = chart.width, height = chart.height;
+  const bgColor = cssVar('--panel') || '#ffffff';
+  const textColor = cssVar('--text-dim') || '#666666';
+  const gridColor = cssVar('--border-soft') || '#dddddd';
+  const parts = [];
+  parts.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" font-family="monospace">`);
+  parts.push(`<rect width="${width}" height="${height}" fill="${bgColor}"/>`);
+
+  const xScale = chart.scales && chart.scales.x;
+  const yScale = chart.scales && chart.scales.y;
+
+  if(yScale && yScale.ticks){
+    yScale.ticks.forEach((t,i)=>{
+      const py = yScale.getPixelForTick(i);
+      const x1 = xScale ? xScale.left : 0, x2 = xScale ? xScale.right : width;
+      parts.push(`<line x1="${x1}" x2="${x2}" y1="${py}" y2="${py}" stroke="${gridColor}" stroke-width="1"/>`);
+      parts.push(`<text x="${x1-6}" y="${py+3}" text-anchor="end" font-size="10" fill="${textColor}">${esc(t.label ?? String(t.value))}</text>`);
+    });
+  }
+  if(xScale && xScale.ticks){
+    const yBase = yScale ? yScale.bottom : height;
+    xScale.ticks.forEach((t,i)=>{
+      const px = xScale.getPixelForTick(i);
+      parts.push(`<text x="${px}" y="${yBase+14}" text-anchor="middle" font-size="10" fill="${textColor}">${esc(t.label ?? String(t.value))}</text>`);
+    });
+  }
+
+  (chart.data.datasets||[]).forEach((ds, dsIdx)=>{
+    const meta = chart.getDatasetMeta(dsIdx);
+    if(!meta || meta.hidden || !meta.data) return;
+    const dsType = ds.type || chart.config.type;
+    const strokeColor = typeof ds.borderColor === 'string' ? ds.borderColor : '#c67f1e';
+    const fillColor = typeof ds.backgroundColor === 'string' ? ds.backgroundColor : strokeColor;
+
+    if(dsType === 'bar'){
+      meta.data.forEach(el=>{
+        const p = el.getProps ? el.getProps(['x','y','base','width'], true) : el;
+        const w = p.width || 10;
+        const x = p.x - w/2, y = Math.min(p.y, p.base), h = Math.abs(p.base - p.y);
+        parts.push(`<rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" fill="${fillColor}"/>`);
+      });
+    } else if(dsType === 'line'){
+      const pts = meta.data.map(el=>{
+        const p = el.getProps ? el.getProps(['x','y'], true) : el;
+        return `${p.x.toFixed(2)},${p.y.toFixed(2)}`;
+      });
+      if(pts.length && (ds.borderWidth !== 0)){
+        parts.push(`<polyline points="${pts.join(' ')}" fill="none" stroke="${strokeColor}" stroke-width="${ds.borderWidth||1.5}"/>`);
+      }
+      if((ds.pointRadius||0) > 0){
+        meta.data.forEach(el=>{
+          const p = el.getProps ? el.getProps(['x','y'], true) : el;
+          parts.push(`<circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="${ds.pointRadius}" fill="${fillColor}"/>`);
+        });
+      }
+    } else if(dsType === 'scatter'){
+      meta.data.forEach(el=>{
+        const p = el.getProps ? el.getProps(['x','y'], true) : el;
+        parts.push(`<circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="${ds.pointRadius||3}" fill="${fillColor}"/>`);
+      });
+    }
+  });
+
+  parts.push('</svg>');
+  return parts.join('');
+}
+function exportChartSVG(getChart, filename){
+  const chart = getChart();
+  if(!chart) return;
+  const svgStr = chartToSVGString(chart);
+  const blob = new Blob([svgStr], {type:'image/svg+xml'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${filename}.svg`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+function chartExternalTooltipHandler(context){
+  const {chart, tooltip} = context;
+  const el = getOrCreateChartTooltipEl();
+  if(tooltip.opacity === 0){
+    el.style.display = 'none';
+    return;
+  }
+  let html = '';
+  if(tooltip.title && tooltip.title.length){
+    html += `<div style="font-weight:600;margin-bottom:4px;">${tooltip.title.map(t=>esc(String(t))).join('<br>')}</div>`;
+  }
+  // The value list wraps into new columns once it would otherwise grow taller than this --
+  // keeps a 100+ timestep tooltip from either running off the bottom of the browser or
+  // needing a scrollbar that can never actually be reached (the mouse has to stay on the
+  // chart line, not the tooltip, for it to even stay open).
+  html += `<div style="display:flex;flex-direction:column;flex-wrap:wrap;max-height:65vh;align-content:flex-start;">`;
+  (tooltip.body||[]).forEach((b, i)=>{
+    const colors = tooltip.labelColors && tooltip.labelColors[i];
+    const swatch = colors ? `<span style="display:inline-block;width:8px;height:8px;background:${colors.backgroundColor};border:1px solid ${colors.borderColor};margin-right:5px;flex:none;margin-top:3px;"></span>` : '';
+    (b.lines||[]).forEach(line=>{
+      html += `<div style="display:flex;align-items:flex-start;max-width:260px;white-space:normal;overflow-wrap:break-word;margin-right:16px;padding-right:2px;">${swatch}<span>${esc(line)}</span></div>`;
+    });
+  });
+  html += `</div>`;
+  el.innerHTML = html;
+  el.style.display = 'block';
+
+  const canvasRect = chart.canvas.getBoundingClientRect();
+  const elRect = el.getBoundingClientRect();
+  let left = canvasRect.left + tooltip.caretX + 12;
+  let top = canvasRect.top + tooltip.caretY - elRect.height/2;
+  if(left + elRect.width > window.innerWidth - 8) left = canvasRect.left + tooltip.caretX - elRect.width - 12;
+  if(left < 8) left = 8;
+  if(top + elRect.height > window.innerHeight - 8) top = window.innerHeight - elRect.height - 8;
+  if(top < 8) top = 8;
+  el.style.left = left + 'px';
+  el.style.top = top + 'px';
+}
+document.addEventListener('mouseleave', e=>{
+  // Hide the external tooltip if the pointer leaves the page entirely (Chart.js's own
+  // leave handling covers leaving the canvas, but not e.g. alt-tabbing away).
+  if(e.target === document.documentElement){
+    const el = document.getElementById('chart-tooltip-el');
+    if(el) el.style.display = 'none';
+  }
+}, true);
 function renderChart(){
   const labels = currentRows.map(r=> r[0]);
   const colIdx = {};
@@ -3996,7 +4373,7 @@ function renderChart(){
     options: {
       responsive:true,
       interaction:{mode:'index', intersect:false},
-      plugins:{ legend:{labels:{color:textColor, font:{family:'IBM Plex Mono', size:11}}} },
+      plugins:{ legend:{labels:{color:textColor, font:{family:'IBM Plex Mono', size:11}}}, tooltip: { enabled: false, external: chartExternalTooltipHandler } },
       scales:{
         x:{ ticks:{color:dimColor, font:{family:'IBM Plex Mono', size:10}}, grid:{color:gridColor} },
         y:{ ticks:{color:dimColor, font:{family:'IBM Plex Mono', size:10}}, grid:{color:gridColor} }
