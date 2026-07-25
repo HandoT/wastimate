@@ -1135,23 +1135,24 @@
             </div>
             <div class="field" id="mc-ts-nuclide-row" style="max-width:220px;display:none;">
               <label>Nuclide</label>
-              <select id="mc-ts-nuclide-select" onchange="renderMonteCarloTimeSeries()"></select>
+              <select id="mc-ts-nuclide-select" onchange="renderMonteCarloTimeSeries(); refreshOpenTrialLookup();"></select>
             </div>
           </div>
           <div style="display:flex;gap:8px;margin-bottom:14px;">
             <button class="mc-view-btn active" id="mc-ts-mode-alltrials-btn" onclick="setMcTimeSeriesMode('alltrials')">All trials</button>
             <button class="mc-view-btn" id="mc-ts-mode-aggregated-btn" onclick="setMcTimeSeriesMode('aggregated')">Aggregated (mean &plusmn; band)</button>
           </div>
-          <p class="empty-hint" style="margin-top:0;" id="mc-ts-hint">Every trial plotted faintly &mdash; hover a line to see its values, click it to look up its parameters. Where many trials agree, the overlapping lines build up into a visibly darker "trend zone".</p>
+          <p class="empty-hint" style="margin-top:0;" id="mc-ts-hint">Every trial plotted faintly &mdash; hover a line for the exact value at that point, click it to look up the trial's full details below. Where many trials agree, the overlapping lines build up into a visibly darker "trend zone".</p>
           <div class="chart-wrap"><canvas id="mc-ts-chart" height="90"></canvas><div class="chart-export-bar"><button onclick="exportChartPNG(()=>mcChartInstances.timeseries,'time_series')">PNG</button><button onclick="exportChartSVG(()=>mcChartInstances.timeseries,'time_series')">SVG</button></div></div>
           <div style="margin-top:10px;">
-            <a href="javascript:void(0)" id="mc-trial-lookup-toggle" onclick="toggleTrialLookup()" style="display:none;font-family:var(--mono);font-size:11.5px;color:var(--text-dim);">&#128269; Look up a trial's parameters</a>
+            <a href="javascript:void(0)" id="mc-trial-lookup-toggle" onclick="toggleTrialLookup()" style="display:none;font-family:var(--mono);font-size:11.5px;color:var(--text-dim);">&#128269; Look up a trial</a>
             <div id="mc-trial-lookup-panel" style="display:none;margin-top:10px;">
               <div class="field" style="max-width:160px;">
                 <label>Trial number</label>
                 <input type="number" min="0" id="mc-trial-lookup-input" oninput="renderTrialLookup()">
               </div>
               <div id="mc-trial-lookup-result" style="margin-top:8px;"></div>
+              <div id="mc-trial-lookup-values" style="margin-top:8px;"></div>
             </div>
           </div>
         </div>
@@ -1462,7 +1463,7 @@ function modelHasAnyDistribution(){
 function monteCarloSettingsHtml(loc){
   return `
     <div class="field-grid">
-      <div class="field"><label>Number of simulations <span class="help-bubble" tabindex="0">?<span class="tip">How many Monte Carlo trials to run. Each trial samples a fresh value from every distribution in the model and runs independently.</span></span></label>
+      <div class="field"><label style="white-space:nowrap;">Number of simulations <span class="help-bubble" tabindex="0">?<span class="tip">How many Monte Carlo trials to run. Each trial samples a fresh value from every distribution in the model and runs independently.</span></span></label>
         <input type="number" min="1" id="mc-trials-${loc}" value="${esc(universeSettings.mcTrials)}" oninput="updateUniverseSettingSilent('mcTrials',this.value,'${loc}')" onblur="updateUniverseSetting('mcTrials',this.value)"></div>
       <div class="field"><label>Sampling method <span class="help-bubble" tabindex="0">?<span class="tip">Latin Hypercube spreads samples more evenly across each distribution's range, giving better coverage with fewer trials than plain random sampling.</span></span></label>
         <select id="mc-sampling-${loc}" onchange="updateUniverseSetting('mcSampling',this.value)">
@@ -1472,8 +1473,8 @@ function monteCarloSettingsHtml(loc){
       </div>
       <div class="field"><label>Random seed <span class="help-bubble" tabindex="0">?<span class="tip">Set this to make the same set of trials reproducible across runs. Leave blank for a different sample each time.</span></span></label>
         <input type="number" id="mc-seed-${loc}" placeholder="random" value="${esc(universeSettings.mcSeed)}" oninput="updateUniverseSettingSilent('mcSeed',this.value,'${loc}')" onblur="updateUniverseSetting('mcSeed',this.value)"></div>
-      <div class="field checkbox"><input type="checkbox" id="mc-keep-${loc}" ${universeSettings.mcKeepFiles?'checked':''} onchange="updateUniverseSetting('mcKeepFiles',this.checked)"><label for="mc-keep-${loc}">Keep individual trial files</label>${help('By default, run_monte_carlo deletes each trial\'s own results/state files once everything is combined into the one aggregated file. Check this to keep them around too.')}</div>
-    </div>`;
+    </div>
+    <div class="field checkbox" style="margin-top:10px;white-space:nowrap;"><input type="checkbox" id="mc-keep-${loc}" ${universeSettings.mcKeepFiles?'checked':''} onchange="updateUniverseSetting('mcKeepFiles',this.checked)"><label for="mc-keep-${loc}">Keep individual trial files</label>${help('By default, run_monte_carlo deletes each trial\'s own results/state files once everything is combined into the one aggregated file. Check this to keep them around too.')}</div>`;
 }
 function renderMonteCarloSettings(){
   const el = document.getElementById('mc-settings-fields');
@@ -3761,6 +3762,7 @@ function onMcTsSeriesChange(){
     nuclideRow.style.display = 'none';
   }
   renderMonteCarloTimeSeries();
+  refreshOpenTrialLookup();
 }
 function setMcTimeSeriesMode(mode){
   mcTsMode = mode;
@@ -3811,13 +3813,22 @@ function renderMcTimeSeriesAllTrials(rows, variableLabel){
     type: 'line',
     data: { datasets },
     options: {
-      interaction: { mode: 'dataset', intersect: true },
+      interaction: { mode: 'nearest', intersect: true }, // one point at a time, not the whole trial's line -- keeps the hover tooltip small
       animation: false, // dataset count here scales with the trial-limit slider; animating potentially hundreds of lines is the main cost once many trials are shown
-      plugins: { legend: { display: false }, tooltip: { enabled: false, external: chartExternalTooltipHandler } },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          enabled: false, external: chartExternalTooltipHandler,
+          callbacks: {
+            title: (items) => items.length ? items[0].dataset.label : '',
+            label: (item) => `x: ${item.parsed.x}, y: ${item.parsed.y}`
+          }
+        }
+      },
       scales: { x: { type: 'linear', title: { display: true, text: 'time' } },
                  y: { title: { display: true, text: variableLabel } } },
       onClick: (evt, elements, chart) => {
-        if(!elements.length || !mcParametersData.length) return;
+        if(!elements.length) return;
         const ds = chart.data.datasets[elements[0].datasetIndex];
         if(ds && ds.trial !== undefined) showTrialLookup(ds.trial);
       }
@@ -3878,8 +3889,15 @@ function loadMonteCarloParameters(data){
   if(input) input.value = '';
   const result = document.getElementById('mc-trial-lookup-result');
   if(result) result.innerHTML = '';
+  const valuesEl = document.getElementById('mc-trial-lookup-values');
+  if(valuesEl) valuesEl.innerHTML = '';
   const toggle = document.getElementById('mc-trial-lookup-toggle');
-  if(toggle) toggle.style.display = mcParametersData.length ? '' : 'none';
+  if(toggle) toggle.style.display = (mcParametersData.length || mcTimeseriesData.length) ? '' : 'none';
+}
+function refreshOpenTrialLookup(){
+  const panel = document.getElementById('mc-trial-lookup-panel');
+  const input = document.getElementById('mc-trial-lookup-input');
+  if(panel && panel.style.display !== 'none' && input && input.value !== '') renderTrialLookup();
 }
 function toggleTrialLookup(){
   const panel = document.getElementById('mc-trial-lookup-panel');
@@ -3893,22 +3911,64 @@ function formatParamValue(v){
 function renderTrialLookup(){
   const input = document.getElementById('mc-trial-lookup-input');
   const resultEl = document.getElementById('mc-trial-lookup-result');
+  const valuesEl = document.getElementById('mc-trial-lookup-values');
   if(!input || !resultEl) return;
-  if(input.value === ''){ resultEl.innerHTML = ''; return; }
+  if(input.value === ''){ resultEl.innerHTML = ''; if(valuesEl) valuesEl.innerHTML=''; return; }
   const trialNum = parseInt(input.value, 10);
-  if(isNaN(trialNum)){ resultEl.innerHTML = ''; return; }
+  if(isNaN(trialNum)){ resultEl.innerHTML = ''; if(valuesEl) valuesEl.innerHTML=''; return; }
+
   const rec = mcParametersData.find(r=>r.trial===trialNum);
   if(!rec){
-    resultEl.innerHTML = `<p class="empty-hint" style="margin:8px 0 0 0;">No parameter data for trial ${trialNum}.</p>`;
-    return;
+    resultEl.innerHTML = mcParametersData.length ? `<p class="empty-hint" style="margin:8px 0 0 0;">No parameter data for trial ${trialNum}.</p>` : '';
+  } else {
+    const entries = Object.entries(rec.params);
+    if(!entries.length){
+      resultEl.innerHTML = `<p class="empty-hint" style="margin:8px 0 0 0;">Trial ${trialNum} had no distributed parameters recorded.</p>`;
+    } else {
+      const rows = entries.map(([label,val])=>`<tr><td>${esc(label)}</td><td>${formatParamValue(val)}</td></tr>`).join('');
+      resultEl.innerHTML = `<table class="data-table" style="margin-top:8px;"><thead><tr><th>Parameter</th><th>Sampled value</th></tr></thead><tbody>${rows}</tbody></table>`;
+    }
   }
-  const entries = Object.entries(rec.params);
-  if(!entries.length){
-    resultEl.innerHTML = `<p class="empty-hint" style="margin:8px 0 0 0;">Trial ${trialNum} had no distributed parameters recorded.</p>`;
-    return;
+  renderTrialValues(trialNum);
+}
+// Shows the full (time, value) series for the given trial -- for whichever variable/series/
+// nuclide the time series chart is currently displaying -- in a plain, selectable/copyable
+// textarea, since a table alone doesn't paste cleanly into a spreadsheet.
+function renderTrialValues(trialNum){
+  const valuesEl = document.getElementById('mc-trial-lookup-values');
+  if(!valuesEl) return;
+  const varSelect = document.getElementById('mc-ts-variable-select');
+  const seriesSelect = document.getElementById('mc-ts-series-select');
+  if(!varSelect || !seriesSelect || !varSelect.value || !seriesSelect.value){ valuesEl.innerHTML = ''; return; }
+  const nuclideRow = document.getElementById('mc-ts-nuclide-row');
+  const nuclideSelect = document.getElementById('mc-ts-nuclide-select');
+  const wantNuclide = nuclideRow && nuclideRow.style.display !== 'none' ? nuclideSelect.value : null;
+  const key = `${varSelect.value}|${seriesSelect.value}|${wantNuclide || ''}`;
+  const rows = (mcTimeseriesIndex.get(key) || []).filter(r=>r.trial===trialNum).sort((a,b)=>a.time-b.time);
+  if(!rows.length){ valuesEl.innerHTML = ''; return; }
+  const label = `${varSelect.value} / ${seriesSelect.value}${wantNuclide ? ' / '+wantNuclide : ''}`;
+  const text = ['time\tvalue', ...rows.map(r=>`${r.time}\t${r.value}`)].join('\n');
+  valuesEl.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+      <label style="font-family:var(--mono);font-size:11px;color:var(--text-dim);">Values (${esc(label)})</label>
+      <button class="ghost small" id="mc-trial-values-copy-btn" onclick="copyTrialValues(this)">copy</button>
+    </div>
+    <textarea readonly style="width:100%;height:140px;margin-top:4px;font-family:var(--mono);font-size:11px;resize:vertical;" id="mc-trial-values-textarea">${esc(text)}</textarea>`;
+}
+function copyTrialValues(btnEl){
+  const ta = document.getElementById('mc-trial-values-textarea');
+  if(!ta) return;
+  const text = ta.value;
+  const flash = ok=>{ if(!btnEl) return; const old = btnEl.textContent; btnEl.textContent = ok ? 'copied!' : 'copy failed'; setTimeout(()=>{ btnEl.textContent = old; }, 1400); };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(()=>flash(true)).catch(()=>{
+      ta.select();
+      try{ flash(document.execCommand('copy')); }catch(e){ flash(false); }
+    });
+  } else {
+    ta.select();
+    try{ flash(document.execCommand('copy')); }catch(e){ flash(false); }
   }
-  const rows = entries.map(([label,val])=>`<tr><td>${esc(label)}</td><td>${formatParamValue(val)}</td></tr>`).join('');
-  resultEl.innerHTML = `<table class="data-table" style="margin-top:8px;"><thead><tr><th>Parameter</th><th>Sampled value</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 function showTrialLookup(trialNum){
   const panel = document.getElementById('mc-trial-lookup-panel');
@@ -4315,19 +4375,26 @@ function chartExternalTooltipHandler(context){
   if(tooltip.title && tooltip.title.length){
     html += `<div style="font-weight:600;margin-bottom:4px;">${tooltip.title.map(t=>esc(String(t))).join('<br>')}</div>`;
   }
-  // The value list wraps into new columns once it would otherwise grow taller than this --
-  // keeps a 100+ timestep tooltip from either running off the bottom of the browser or
-  // needing a scrollbar that can never actually be reached (the mouse has to stay on the
-  // chart line, not the tooltip, for it to even stay open).
-  html += `<div style="display:flex;flex-direction:column;flex-wrap:wrap;max-height:65vh;align-content:flex-start;">`;
+  // Flatten to one list of rows first, so the column count can be computed from the actual
+  // total -- CSS Grid (unlike a flex column-wrap container) reliably sizes its own width to
+  // fit exactly the number of columns it's told to have, so an explicit grid sidesteps the
+  // "background only covers the first column" issue entirely rather than working around it.
+  const rows = [];
   (tooltip.body||[]).forEach((b, i)=>{
     const colors = tooltip.labelColors && tooltip.labelColors[i];
-    const swatch = colors ? `<span style="display:inline-block;width:8px;height:8px;background:${colors.backgroundColor};border:1px solid ${colors.borderColor};margin-right:5px;flex:none;margin-top:3px;"></span>` : '';
-    (b.lines||[]).forEach(line=>{
-      html += `<div style="display:flex;align-items:flex-start;max-width:260px;white-space:normal;overflow-wrap:break-word;margin-right:16px;padding-right:2px;">${swatch}<span>${esc(line)}</span></div>`;
-    });
+    (b.lines||[]).forEach(line=>{ rows.push({line, colors}); });
   });
-  html += `</div>`;
+  if(rows.length){
+    const MAX_ROWS_PER_COLUMN = 20, MAX_COLUMNS = 5;
+    let columnCount = Math.max(1, Math.min(MAX_COLUMNS, Math.ceil(rows.length / MAX_ROWS_PER_COLUMN)));
+    let rowsPerColumn = Math.ceil(rows.length / columnCount);
+    html += `<div style="display:grid;grid-auto-flow:column;grid-template-rows:repeat(${rowsPerColumn}, auto);grid-template-columns:repeat(${columnCount}, minmax(160px, 260px));column-gap:16px;row-gap:0;">`;
+    rows.forEach(r=>{
+      const swatch = r.colors ? `<span style="display:inline-block;width:8px;height:8px;background:${r.colors.backgroundColor};border:1px solid ${r.colors.borderColor};margin-right:5px;flex:none;margin-top:3px;"></span>` : '';
+      html += `<div style="display:flex;align-items:flex-start;white-space:normal;overflow-wrap:break-word;">${swatch}<span>${esc(r.line)}</span></div>`;
+    });
+    html += `</div>`;
+  }
   el.innerHTML = html;
   el.style.display = 'block';
 
