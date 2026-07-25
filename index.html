@@ -3819,6 +3819,7 @@ function renderMcTimeSeriesAllTrials(rows, variableLabel){
         legend: { display: false },
         tooltip: {
           enabled: false, external: chartExternalTooltipHandler,
+          filter: (item, index) => index === 0, // with overlapping trials, "nearest" can still return more than one point tied for closest -- only ever show the first
           callbacks: {
             title: (items) => items.length ? items[0].dataset.label : '',
             label: (item) => `x: ${item.parsed.x}, y: ${item.parsed.y}`
