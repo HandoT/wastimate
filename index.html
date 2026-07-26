@@ -2616,6 +2616,12 @@ function orderCardHtml(o){
                 </div>
                 <div class="field"><label>${isMixVariable(c.variable)?'Cumulative limit (usually 1)':'Shared threshold'}</label>${distField(c.value, `updateCriterionSilent('${o.id}',${ci},'value',this.value)`, null, {id:`dist-critval-${o.id}-${ci}`})}</div>
               </div>
+              ${c.region==='node' ? `
+              <div class="field-grid">
+                <div class="field"><label>Node ${help('Which node this criterion actually checks. Leave blank to check whichever candidate node the order is currently considering (the previous, still-default behavior) — or pick a specific node to always check that one, regardless of which node the order ends up working with.')}</label>
+                  <select onchange="updateCriterion('${o.id}',${ci},'targetNode',this.value)"><option value="">(candidate node)</option>${nodeIdOptionList(c.targetNode)}</select>
+                </div>
+              </div>` : ''}
 
               ${isMixVariable(c.variable) ? `
                 <div class="subblock">
@@ -3217,6 +3223,7 @@ function buildXML(){
       lines.push(`      <ordernodes>${xmlEscAttr((o.ordernodes||[]).map(nodeLabelById).join(' '))}</ordernodes>`);
       (o.criteria||[]).forEach(c=>{
         const cAttrs = [`region="${xmlEscAttr(c.region)}"`, `variable="${xmlEscAttr(c.variable)}"`, `principle="${xmlEscAttr(c.principle)}"`];
+        if(c.region==='node' && c.targetNode) cAttrs.push(`node="${xmlEscAttr(nodeLabelById(c.targetNode))}"`);
         if(c.value!=='') cAttrs.push(`criteria="${xmlEscAttr(c.value)}"`);
         const mix = isMixVariable(c.variable);
         if(mix && c.limitsFile) cAttrs.push(`limits="${xmlEscAttr(c.limitsFile)}"`);
@@ -3381,13 +3388,14 @@ function classifyFilterToken(token){
   if(/^[A-Za-z]+\d+(_m\d+)?$/.test(token) || /^\d+[A-Za-z]+(_m\d+)?$/.test(token)) return {kind:'nuclide', nuclideName:normalizeNuclide(token)};
   return {kind:'decaytype', decayType:'custom', decayTypeCustom:token};
 }
-function parseCriteriaEl(critEl){
+function parseCriteriaEl(critEl, nodeIdByLabelImport){
   const c = {
     region: critEl.getAttribute('region')||'package',
     variable: critEl.getAttribute('variable')||'mass',
     principle: critEl.getAttribute('principle')||'min',
     value: critEl.hasAttribute('criteria') ? critEl.getAttribute('criteria') : '',
     limitsFile: critEl.getAttribute('limits')||'',
+    targetNode: critEl.hasAttribute('node') ? (nodeIdByLabelImport[critEl.getAttribute('node')] || '') : '',
     advanced: false, filters: []
   };
   const nucEls = Array.from(critEl.querySelectorAll('nuclide'));
@@ -3467,7 +3475,7 @@ function importModelXML(xmlText){
   // orders
   root.querySelectorAll(':scope > orders > order').forEach(oe=>{
     const critEls = Array.from(oe.querySelectorAll(':scope > criteria'));
-    const criteria = critEls.map(parseCriteriaEl);
+    const criteria = critEls.map(ce => parseCriteriaEl(ce, nodeIdByLabelImport));
     const ordernodesText = childText(oe, 'ordernodes');
     const instrEl = oe.querySelector('instruction');
     const order = {
