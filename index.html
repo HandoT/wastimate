@@ -2608,7 +2608,7 @@ function orderCardHtml(o){
                     ${variableOptionsHtml(ORDER_CRITERIA_VARIABLE_DEFS, c.variable)}
                   </select>
                 </div>
-                <div class="field"><label>Principle ${help('min = the value must be at least the threshold, max = at most the threshold.')}</label>
+                <div class="field"><label>Principle ${help('min = the value must be less than the threshold, max = more than the threshold.')}</label>
                   <select onchange="updateCriterion('${o.id}',${ci},'principle',this.value)">
                     <option value="min" ${c.principle==='min'?'selected':''}>min</option>
                     <option value="max" ${c.principle==='max'?'selected':''}>max</option>
