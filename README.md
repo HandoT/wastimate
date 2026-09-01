@@ -20,8 +20,8 @@ Nuclide decay is computed from decay chain data for every nuclide in every packa
 
 A model is defined in a single XML file specifying the packages, nodes, orders, sources, and the sequence of actions to be executed (time advancement, result output, package transfer, and so on). A model is executed with a single function call:
 
-    import xml_simulate as xs
-    xs.run("my_model.xml")
+    from wastimate.xmlapi import xml_simulate as xmlsim
+    xmlsim.run("model.xml")
 
 This entry point inspects the model file and dispatches execution accordingly. A fully deterministic model is executed once. If any parameter in the model is specified as a distribution rather than a fixed value, a Monte Carlo ensemble is executed automatically, without requiring a separate function call.
 
