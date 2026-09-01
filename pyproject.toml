@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "Wastimate"
+version = "3.2.2"
+description = "A toolkit to model the flow of radioactive materials between system nodes."
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [
+  { name="Hando Tohver", email="hando.tohver@ut.ee" },
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "imageio>=2.37.4",
+    "matplotlib>=3.11.1",
+    "numpy>=2.5.1",
+    "pandas>=3.0.3",
+    "scipy>=1.18.0",
+    "tqdm>=4.69.0",
+]
+
+# CRITICAL: Tell setuptools to include non-Python files inside your package
+[tool.setuptools.package-data]
+wastimate = [
+    "data/*.xml",
+    "data/*.json",
+]
