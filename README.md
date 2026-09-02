@@ -37,7 +37,7 @@ Simulation output is written as JSON, comprising mass, volume, activity, heat, a
 
 ## Configuration and visualization tool
 
-This repository includes a standalone HTML application (index_2___1_.html) for model construction and results visualization. The application requires no installation or external dependencies beyond a web browser.
+This repository includes a standalone HTML application (index.html) for model construction and results visualization. The application requires no installation or external dependencies beyond a web browser.
 
 The configuration interface provides editing of packages, nodes, orders, and sources, including a graphical network editor for node connectivity, a live preview of the generated model XML, and support for specifying any parameter as a distribution for Monte Carlo execution. The interface performs basic validation of model completeness, flagging conditions such as the absence of defined nodes or packages with no specified nuclides prior to execution.
 
