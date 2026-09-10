@@ -40,6 +40,9 @@
     --on-ok:#0a1a14;
     --ok-tint:#132420;
     --amber-hover:#6ee4ff;
+    --violet:#c197f7;
+    --violet-dim:#9a6bd9;
+    --violet-tint:#1c1626;
     --code-bg:#081015;
     --code-text:#8fd4ea;
     --header-bg:rgba(7,12,17,0.92);
@@ -67,6 +70,9 @@
     --on-ok:#f2fbf6;
     --ok-tint:#e2f3e9;
     --amber-hover:#005e76;
+    --violet:#7a3fc4;
+    --violet-dim:#6530a8;
+    --violet-tint:#f1eaf9;
     --code-bg:#eef3f6;
     --code-text:#0a4b5e;
     --header-bg:rgba(247,250,252,0.92);
@@ -306,20 +312,6 @@
   /* ---------- advanced filters ---------- */
   .advanced-toggle{display:flex;align-items:center;gap:7px;margin-top:12px;font-family:var(--mono);font-size:11.5px;color:var(--text-dim);cursor:pointer;user-select:none;}
   .advanced-toggle input{accent-color:var(--amber);}
-  .filter-row{
-    display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;
-    background:var(--bg);border:1px solid var(--border-soft);padding:10px;border-radius:2px;margin-bottom:7px;
-  }
-  .filter-row .field{min-width:120px;flex:1 1 120px;}
-  .filter-row .field.narrow{flex:0 0 90px;min-width:90px;}
-  .filter-row .rm{background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:16px;padding:6px;}
-  .filter-row .rm:hover{color:var(--danger);}
-  .filter-add-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;}
-  .filter-kind-badge{
-    font-family:var(--mono);font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;
-    color:var(--amber-dim);border:1px solid var(--amber-dim);border-radius:10px;padding:3px 8px;
-    flex:none;background:transparent;line-height:1;margin-bottom:9px;
-  }
 
   /* ---------- alternative conditions (OR-combinations of criteria) ---------- */
   .condition-row{display:flex;gap:14px;flex-wrap:wrap;padding-right:22px;}
@@ -340,8 +332,105 @@
   .criterion-chevron{font-size:9px;color:var(--text-faint);flex-shrink:0;}
   .criterion-remove{background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:15px;line-height:1;padding:2px 4px;flex-shrink:0;}
   .criterion-remove:hover{color:var(--danger);}
-  .criterion-body{padding:12px;border-top:1px solid var(--border-soft);background:var(--panel);}
+  .criterion-body{padding:14px;border-top:1px solid var(--border-soft);background:var(--panel);}
   .criterion-empty{color:var(--text-faint);font-family:var(--mono);font-size:11.5px;margin:0 0 8px 0;padding:4px 2px;}
+
+  /* ---------- criteria: visual rework (icons, sentence layout, exceptions, live preview) ---------- */
+  .criterion-item{border-left:3px solid var(--border-soft);}
+  .criterion-item.is-exception{border-left-color:var(--violet);}
+  .crit-icon{
+    width:22px;height:22px;border-radius:6px;flex:none;display:flex;align-items:center;justify-content:center;
+    background:color-mix(in srgb, var(--amber) 14%, transparent);color:var(--amber);
+  }
+  .criterion-item.is-exception .crit-icon{background:color-mix(in srgb, var(--violet) 16%, transparent);color:var(--violet);}
+  .crit-icon svg{width:13px;height:13px;}
+  .criterion-index{display:none;} /* superseded by .crit-icon, kept in DOM-compat spots only */
+  .criterion-summary-row{gap:9px;padding:9px 10px;}
+  .criterion-text{font-family:var(--sans);font-size:12.5px;line-height:1.35;white-space:normal;}
+  .criterion-text .sv{color:var(--amber-dim);}
+  .criterion-text .sn{color:var(--ok);}
+  .criterion-text .criterion-scope{color:var(--text-faint);}
+  .crit-badge{
+    font-family:var(--mono);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+    border-radius:9px;padding:2px 7px;flex:none;line-height:1.5;
+  }
+  .crit-badge.exception{color:var(--violet);border:1px solid var(--violet-dim);background:var(--violet-tint);}
+  .crit-badge.default{color:var(--text-faint);border:1px solid var(--border);background:transparent;}
+
+  /* fill-in-the-blank sentence layout — same font/size as every other field in the app;
+     only the background tint marks a piece as "fill in here", not weight or a different face. */
+  .crit-sentence{
+    display:flex;flex-wrap:wrap;align-items:center;gap:7px 6px;font-family:var(--sans);font-size:13px;
+    line-height:2.2;color:var(--text-dim);
+  }
+  .crit-sentence.secondary{font-size:12.5px;color:var(--text-faint);margin-top:2px;}
+  .crit-sentence .lead{color:var(--text-faint);}
+  .crit-pick-trigger{
+    display:inline-flex;align-items:center;gap:5px;appearance:none;-webkit-appearance:none;
+    background:color-mix(in srgb, var(--amber) 9%, transparent);border:1px solid var(--amber-dim);border-radius:5px;
+    color:var(--text);font-family:var(--sans);font-weight:400;font-size:13px;padding:4px 8px;cursor:pointer;
+    max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .crit-pick-trigger:hover{background:color-mix(in srgb, var(--amber) 16%, transparent);}
+  .crit-pick-trigger:focus{outline:1px solid var(--amber);}
+  .crit-pick-caret{flex:none;width:8px;height:5px;color:var(--amber-dim);}
+  .crit-value-wrap{display:inline-flex;align-items:center;}
+  .crit-value-wrap .dist-wrap{min-width:100px;}
+  .crit-value-wrap .dist-wrap input{
+    background:color-mix(in srgb, var(--ok) 9%, transparent);border:1px solid var(--ok);color:var(--text);
+    font-family:var(--sans);font-weight:400;font-size:13px;border-radius:5px;padding:4px 22px 4px 8px;
+  }
+  .crit-unit{font-family:var(--sans);font-size:12px;color:var(--text-faint);}
+  .crit-node-picker{margin-top:6px;}
+
+  .crit-actions-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+  button.add-exception{
+    font-family:var(--sans);font-size:12px;letter-spacing:.01em;background:transparent;
+    border:1px dashed var(--violet-dim);color:var(--violet);padding:7px 12px;border-radius:2px;cursor:pointer;transition:all .15s;
+    display:inline-flex;align-items:center;
+  }
+  button.add-exception:hover{border-style:solid;background:var(--violet-tint);}
+
+  /* nuclide/decay/half-life restrictions -- read as one flowing, comma-separated continuation
+     of the sentence above ("specifically Co60, Sr90 and radionuclides with half-lives under 30
+     years"), not separate boxed rows and not icon-badged. The add trigger is a small subtle "+"
+     rendered inline as part of the same sentence as the main criterion (not a separate block
+     below it), and with a small always-visible "+" — no hover-only affordance, since hover
+     doesn't exist on touch/mobile. */
+  .filter-sentence-inline{display:inline;} /* the filter clause lives inside .crit-sentence's flex row */
+  .filter-frag{display:inline-flex;flex-wrap:wrap;align-items:center;gap:4px;}
+  .filter-frag input[type=text]{
+    background:color-mix(in srgb, var(--amber) 7%, transparent);border:1px solid var(--border);border-radius:4px;
+    color:var(--text);font-family:var(--sans);font-size:12.5px;padding:2px 6px;width:88px;
+  }
+  .filter-frag .rm{background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:13px;padding:0 2px;flex:none;}
+  .filter-frag .rm:hover{color:var(--danger);}
+  .filter-frag .fc-extra{color:var(--text-faint);}
+  .filter-frag .fc-extra .sn{color:var(--ok);}
+  .filter-frag .crit-value-wrap .dist-wrap{min-width:56px;}
+  .filter-frag .crit-value-wrap .dist-wrap input{font-size:12.5px;padding:2px 20px 2px 6px;}
+  .filter-join{color:var(--text-faint);font-weight:600;}
+  .filter-except-lead{color:var(--violet);}
+  .add-restriction-btn{
+    display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;flex:none;
+    color:var(--amber-dim);background:color-mix(in srgb, var(--amber) 10%, transparent);border:1.5px dashed var(--amber-dim);
+    border-radius:50%;cursor:pointer;transition:all .15s;
+  }
+  .add-restriction-btn:hover, .add-restriction-btn:focus{border-color:var(--amber);color:var(--amber);border-style:solid;background:color-mix(in srgb, var(--amber) 18%, transparent);}
+  .add-restriction-btn svg{width:9px;height:9px;}
+
+  /* decay-type multi-select as toggle chips instead of a single dropdown */
+  .decay-chip-group{display:inline-flex;flex-wrap:wrap;gap:4px;}
+  .decay-chip{
+    font-family:var(--sans);font-size:11.5px;background:var(--panel);color:var(--text-dim);border:1px solid var(--border);
+    border-radius:10px;padding:2px 8px;cursor:pointer;transition:all .12s;user-select:none;
+  }
+  .decay-chip:hover{border-color:var(--amber);color:var(--amber);}
+  .decay-chip.on{border-color:var(--amber);color:var(--amber-dim);background:color-mix(in srgb, var(--amber) 16%, transparent);font-weight:500;}
+
+  /* floating pick menu — same component the actions timeline's "+" uses */
+  .action-insert-menu button.crit-picked{color:var(--amber);}
+
 
   /* ---------- node package push-buttons ---------- */
   .pkg-btn-row{display:flex;flex-wrap:wrap;gap:7px;}
@@ -1720,6 +1809,25 @@ const ORDER_MIX_VARIABLE_DEFS = [
   {value:'activity_concentration_mix', label:'Activity concentration mix (cumulative ratio)'},
 ];
 const ORDER_CRITERIA_VARIABLE_DEFS = CRITERIA_VARIABLE_DEFS.concat(ORDER_MIX_VARIABLE_DEFS);
+// Small line-icon glyphs per criterion variable / filter kind so the criteria list and
+// filter cards are scannable at a glance instead of relying purely on text labels.
+const CRIT_ICONS = {
+  mass: '<path d="M8 2v3M5 5h6l1.5 8a1 1 0 0 1-1 1.1H4.5a1 1 0 0 1-1-1.1L5 5z"/>',
+  volume: '<rect x="3" y="3" width="10" height="10" rx="1.5"/><path d="M3 6.5h10"/>',
+  inventory: '<rect x="2.5" y="4" width="11" height="9" rx="1"/><path d="M5.5 4V3a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1"/>',
+  activity: '<circle cx="8" cy="8" r="1.4" fill="currentColor" stroke="none"/><circle cx="8" cy="8" r="5.5"/><path d="M8 2.5v2M8 11.5v2M2.5 8h2M11.5 8h2"/>',
+  activity_concentration: '<circle cx="8" cy="8" r="1.4" fill="currentColor" stroke="none"/><circle cx="8" cy="8" r="4"/><path d="M2 14l3-3M14 2l-3 3"/>',
+  heat: '<path d="M8 2c2 2.4 2.6 4-.2 6.2-1.6 1.3-1.5 2.7-.5 3.6.9.8 2.6.6 2.9-1 .8 1.4.2 3.5-1.6 4.3-2.2 1-4.6-.4-4.9-2.7-.2-1.6.5-2.6 1.4-3.7 1-1.2.7-2.3-.4-3.4C3.6 4.2 5.6 2.8 8 2z"/>',
+  heat_concentration: '<path d="M8 2c2 2.4 2.6 4-.2 6.2-1.6 1.3-1.5 2.7-.5 3.6.9.8 2.6.6 2.9-1 .8 1.4.2 3.5-1.6 4.3"/><path d="M2 14l3-3M14 2l-3 3"/>',
+  activity_mix: '<circle cx="5.5" cy="10.5" r="2"/><circle cx="10.5" cy="5.5" r="2"/><path d="M7 9l2-2"/>',
+  activity_concentration_mix: '<circle cx="5.5" cy="10.5" r="2"/><circle cx="10.5" cy="5.5" r="2"/><path d="M7 9l2-2"/>',
+  dose: '<circle cx="8" cy="8" r="5.5"/><path d="M8 4.5v3.5l2.6 1.5"/>',
+  halflife: '<circle cx="8" cy="8.5" r="5.5"/><path d="M8 5v3.5l2.4 2"/>',
+};
+function critIcon(variable){
+  const d = CRIT_ICONS[variable] || '<circle cx="8" cy="8" r="5.5"/>';
+  return `<span class="crit-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">${d}</svg></span>`;
+}
 function criterionSummary(c, defs, nodes){
   defs = defs || CRITERIA_VARIABLE_DEFS;
   const varLabel = criteriaVariableLabel(defs, c.variable);
@@ -1785,9 +1893,50 @@ function isMixVariable(v){ return v==='activity_mix' || v==='activity_concentrat
 // would be misleading and confusing.
 const NON_NUCLIDE_VARIABLES = new Set(['mass', 'volume']);
 function isNuclideSpecificVariable(v){ return !NON_NUCLIDE_VARIABLES.has(v); }
-// Renders a compact summary of a criterion's nuclide filters — used both in the collapsed
-// criterion summary line and on the network diagram chips, so a criterion like
-// "activity ≤ 10 for nuclides with half-life > 30y" reads that way everywhere it appears.
+// Plain-language fragment for a single restriction -- "Co60", "beta- emitters",
+// "radionuclides with half-lives under 30 years" -- shared by the collapsed criterion
+// summary, the network diagram tooltip, and the editable comma-sentence in the criterion body,
+// so a restriction reads exactly the same way everywhere it appears.
+function filterFragmentText(f){
+  if(f.kind==='nuclide') return f.nuclideName ? normalizeNuclide(f.nuclideName) : '(unnamed nuclide)';
+  if(f.kind==='decaytype'){
+    const list = (f.decayTypes||[]).slice();
+    if(f.decayTypeCustom) list.push(...String(f.decayTypeCustom).split(',').map(s=>s.trim()).filter(Boolean));
+    if(!list.length) return '(no decay type chosen)';
+    let text = list.map(d=>d==='alpha'?'\u03b1':d).join('/') + ' emitters';
+    if(f.alsoHalflife && f.hlMagnitude!==''&&f.hlMagnitude!==undefined&&f.hlMagnitude!==null){
+      const unitWord = {y:'years',m:'months',d:'days',h:'hours'}[f.hlUnit] || 'years';
+      text += ` with half-lives ${f.hlCompare==='+'?'over':'under'} ${f.hlMagnitude} ${unitWord}`;
+    }
+    return text;
+  }
+  if(f.kind==='halflife'){
+    const amt = (f.hlMagnitude!==''&&f.hlMagnitude!==undefined&&f.hlMagnitude!==null) ? f.hlMagnitude : '?';
+    const unitWord = {y:'years',m:'months',d:'days',h:'hours'}[f.hlUnit] || 'years';
+    return `radionuclides with half-lives ${f.hlCompare==='+'?'over':'under'} ${amt} ${unitWord}`;
+  }
+  return '';
+}
+// "A, B and C" -- for plain text.
+function joinWithAnd(list){
+  list = list.filter(Boolean);
+  if(!list.length) return '';
+  if(list.length===1) return list[0];
+  if(list.length===2) return `${list[0]} and ${list[1]}`;
+  return `${list.slice(0,-1).join(', ')} and ${list[list.length-1]}`;
+}
+// Same join, but for an array of already-built HTML fragment strings (editable pieces), so the
+// joining words render as their own styled spans instead of being escaped into the text.
+function joinFragsHtml(frags){
+  frags = frags.filter(Boolean);
+  if(!frags.length) return '';
+  if(frags.length===1) return frags[0];
+  if(frags.length===2) return `${frags[0]}<span class="filter-join"> and </span>${frags[1]}`;
+  return `${frags.slice(0,-1).join('<span class="filter-join">, </span>')}<span class="filter-join"> and </span>${frags[frags.length-1]}`;
+}
+// Renders a criterion's nuclide filters — used both in the collapsed criterion summary line
+// and on the network diagram tooltip, so a criterion like "activity ≤ 10 for radionuclides
+// with half-lives over 30y" reads that way everywhere it appears.
 function criterionFilterSummary(c){
   if(!isNuclideSpecificVariable(c.variable)) return '';
   const filters = (c.filters || []).filter(f => filterToken(f) !== '');
@@ -1795,15 +1944,7 @@ function criterionFilterSummary(c){
   if(isMixVariable(c.variable)){
     return `${filters.length} nuclide${filters.length>1?'s':''}`;
   }
-  return filters.map(f => {
-    if(f.kind==='nuclide') return normalizeNuclide(f.nuclideName||'');
-    if(f.kind==='decaytype'){
-      const dt = f.decayType==='custom' ? (f.decayTypeCustom||'') : f.decayType;
-      return dt === 'alpha' ? '\u03b1-emitters' : dt;
-    }
-    if(f.kind==='halflife') return `T\u00bd ${f.hlCompare==='-'?'<':'>'} ${f.hlMagnitude||'?'}${f.hlUnit}`;
-    return '';
-  }).filter(Boolean).join(' & ');
+  return joinWithAnd(filters.map(filterFragmentText));
 }
 function criteriaVariableLabel(defs, value){
   const found = defs.find(v=>v.value===value);
@@ -2619,135 +2760,322 @@ function criterionSummaryCompact(c, nodes){
   if(filterSumm) core += ` \u00b7 ${filterSumm}`;
   return core;
 }
+// Readable, plain-language version of a criterion for the collapsed row — reads like a
+// sentence ("each package \u00b7 Activity concentration at most 100 for alpha-emitters") instead
+// of the terse chip form, so the rule is understandable without opening it.
+function criterionPlainSentence(c, defs, nodes){
+  defs = defs || CRITERIA_VARIABLE_DEFS;
+  const varLabel = criteriaVariableLabel(defs, c.variable);
+  const cmp = c.principle === 'max' ? 'at least' : 'at most';
+  const val = (c.value !== '' && c.value !== undefined && c.value !== null) ? compactValueDisplay(c.value) : '?';
+  let scope = 'each package';
+  if(c.region === 'node'){
+    const n = c.targetNode && nodes ? nodes.find(x=>x.id===c.targetNode) : null;
+    scope = n ? `node <span class="sv">${esc(n.label)}</span>` : 'the candidate node';
+  }
+  let text = `${scope} &middot; <span class="sv">${esc(varLabel)}</span> ${cmp} <span class="sn">${esc(String(val))}</span>`;
+  const filterSumm = criterionFilterSummary(c);
+  if(filterSumm){
+    const lead = filterSumm.startsWith('except for') ? '' : 'for ';
+    text += ` <span class="criterion-scope">${lead}${esc(filterSumm)}</span>`;
+  }
+  return text;
+}
 function criterionItemHtml(kind, id, c, ci, defs, nodes){
   const key = criterionKey(kind, id, ci);
   const isExpanded = expandedCriteria.has(key);
-  const summary = criterionSummaryCompact(c, nodes);
+  const sentence = criterionPlainSentence(c, defs, nodes);
   const removeFn = kind==='ord' ? 'removeCriterion' : 'removeActCriterion';
+  const badge = c.isException ? `<span class="crit-badge exception">exception</span>`
+    : c.isMopUp ? `<span class="crit-badge default">other types</span>`
+    : (criteria2HasException(kind,id) ? `<span class="crit-badge default">required</span>` : '');
   return `
-    <div class="criterion-item ${isExpanded?'expanded':''}">
+    <div class="criterion-item ${isExpanded?'expanded':''} ${c.isException?'is-exception':''}">
       <div class="criterion-summary-row" onclick="toggleCriterionExpanded('${kind}','${id}',${ci})">
-        <span class="criterion-index">${ci+1}</span>
-        <span class="criterion-text">${esc(summary)}</span>
+        ${critIcon(c.variable)}
+        <span class="criterion-text">${sentence}</span>
+        ${badge}
         <span class="criterion-chevron">${isExpanded?'\u25b2':'\u25bc'}</span>
         <button class="criterion-remove" onclick="event.stopPropagation();${removeFn}('${id}',${ci})" title="remove criterion">&times;</button>
       </div>
-      ${isExpanded ? `<div class="criterion-body">${kind==='ord' ? orderCriterionBodyHtml(id, c, ci) : actCriterionBodyHtml(id, c, ci)}</div>` : ''}
+      ${isExpanded ? `<div class="criterion-body">${kind==='ord' ? orderCriterionBodyHtml(id, c, ci) : actCriterionBodyHtml(id, c, ci)}
+        ${c._showExcForm ? autoExceptionFormHtml(kind,id,ci,c) : ''}
+      </div>` : ''}
     </div>`;
 }
+// Whether this order/action has any exception-flagged criteria — used to decide whether the
+// "required" badge is worth showing on the non-exception rows (no point cluttering a plain list).
+function criteria2HasException(kind, id){
+  const item = (kind==='ord' ? orders : actions).find(x=>x.id===id);
+  return !!(item && (item.criteria||[]).some(c=>c.isException));
+}
+// Plain-language summary of the whole rule set for an order/action: how the default (all
+// required) path and any exception/alternative paths combine to decide whether a package
+// qualifies. Not shown in the UI (removed for being redundant once each criterion already
+// reads as a sentence), kept as a small utility other code can still call if useful.
+function stripTags(s){ return String(s).replace(/<[^>]+>/g,''); }
 function criteriaListHtml(kind, id, criteria, defs, nodes){
   const addFn = kind==='ord' ? 'addCriterion' : 'addActCriterion';
   const addBtn = `<button class="add" style="margin-top:8px;" onclick="${addFn}('${id}')">+ add criterion</button>`;
   if(!criteria || !criteria.length){
     return `<p class="criterion-empty">No criteria yet &mdash; every package matches.</p>${addBtn}`;
   }
+  const item = (kind==='ord' ? orders : actions).find(x=>x.id===id);
+  const conditions = item ? item.conditions : [];
   return `
     <div class="criterion-list">
       ${criteria.map((c,ci)=>criterionItemHtml(kind, id, c, ci, defs, nodes)).join('')}
     </div>
     ${addBtn}`;
 }
+// ---- automatic "except for one decay type" wizard --------------------------------------
+// Scoped to the one pattern this can build safely and unambiguously: a criterion whose ONLY
+// restriction is a half-life band (the common "we don't allow long-lived nuclides" rule).
+// Given a decay type and a raised threshold, it builds:
+//   1. this rule, unchanged (the general half-life ban)
+//   2. an exception: [chosen type] AND [same half-life band] <= the raised threshold
+//   3. a "mop-up" rule: for EVERY OTHER decay type, [that type] AND [same half-life band]
+//      must still satisfy the ORIGINAL threshold -- so nothing except the chosen type
+//      actually gets to use the relaxed limit
+// ...then wires one alternative where (1) doesn't matter and (2)+(3) must both pass. Since (1)
+// passing always implies (2) and (3) already hold (same threshold, narrower filters), the net
+// effect is exactly "the general rule, OR the exception together with the reassurance that no
+// other type snuck through" -- with no changes needed to the simulator: it only uses the
+// comma-AND-intersection within a single filter token, which the engine already supports.
+function eligibleForAutoException(c){
+  return isNuclideSpecificVariable(c.variable) && !isMixVariable(c.variable)
+    && (c.filters||[]).length===1 && c.filters[0].kind==='halflife';
+}
+function showExcForm(kind,id,ci){
+  const item = (kind==='ord'?orders:actions).find(x=>x.id===id);
+  item.criteria[ci]._showExcForm = true;
+  if(kind==='ord'){ renderOrders(); if(typeof renderNetworkInspector==='function') renderNetworkInspector(); }
+  else { renderActions(); }
+}
+function autoExceptionFormHtml(kind,id,ci,c){
+  const draft = c._excDraft || {type:'alpha', value:''};
+  c._excDraft = draft;
+  return `
+    <div class="crit-sentence secondary" style="margin-top:8px;">
+      <span class="filter-except-lead">Except for</span>
+      ${critPickBtn(draft.type, 'exceptiontype', kind, id, ci)}
+      <span class="lead">emitters, allow up to</span>
+      <span class="crit-value-wrap">${distField(draft.value, `updateExcDraftSilent('${kind}','${id}',${ci},'value',this.value)`, null, {id:`dist-excdraft-${kind}-${id}-${ci}`, placeholder:'threshold'})}</span>
+      <button type="button" class="add-exception" onclick="createAutoException('${kind}','${id}',${ci})">create</button>
+      ${help('Builds this automatically as two extra criteria joined by an alternative: an exception for the chosen decay type at the raised threshold, and a check re-asserting this rule for every other decay type so nothing else slips through. No changes needed to the simulator.')}
+    </div>`;
+}
+function updateExcDraftSilent(kind,id,ci,key,val){
+  const item = (kind==='ord'?orders:actions).find(x=>x.id===id);
+  const c = item.criteria[ci];
+  c._excDraft = c._excDraft || {type:'alpha', value:''};
+  c._excDraft[key] = val;
+  buildXML();
+}
+function setExcDraftType(kind,id,ci,type){
+  const item = (kind==='ord'?orders:actions).find(x=>x.id===id);
+  const c = item.criteria[ci];
+  c._excDraft = c._excDraft || {type:'alpha', value:''};
+  c._excDraft.type = type;
+  if(kind==='ord'){ renderOrders(); if(typeof renderNetworkInspector==='function') renderNetworkInspector(); }
+  else { renderActions(); }
+}
+function createAutoException(kind, id, ci){
+  const item = (kind==='ord'?orders:actions).find(x=>x.id===id);
+  const c = item.criteria[ci];
+  const draft = c._excDraft || {};
+  const type = draft.type || 'alpha';
+  const value = (draft.value!==undefined && draft.value!==null) ? draft.value : '';
+  const hl = (c.filters||[]).find(f=>f.kind==='halflife');
+  if(value==='' || !hl) return; // need both a threshold and the single half-life restriction this wizard expects
+  const mkFilter = (decayType) => ({
+    id: nid(), kind:'decaytype', nuclideName:'', decayTypes:[decayType], decayTypeCustom:'',
+    hlCompare: hl.hlCompare, hlMagnitude: hl.hlMagnitude, hlUnit: hl.hlUnit, alsoHalflife:true, tokenValue:''
+  });
+  const excCrit = {region:c.region, variable:c.variable, principle:c.principle, value, limitsFile:'', advanced:true, isException:true, filters:[mkFilter(type)]};
+  // The simulator matches decay-type pieces by plain substring containment (e.g. "alpha"
+  // contains the letter "p"), so a short code like the proton-decay "p" can spuriously match
+  // nuclides of a completely different, longer type name. Drop any other type that collides
+  // with the chosen one either way, so the mop-up can't accidentally re-restrict the very
+  // nuclides the exception was just built to free up.
+  const otherTypes = DECAY_TYPES.filter(d=>d!==type && !d.includes(type) && !type.includes(d));
+  // One filter, multiple decay types selected -- buildXML() expands this into one token per
+  // type at export time (each still combined with the same half-life band) so the "any of
+  // these other types" check stays correct, without needing a separate row per type here.
+  const mopUpFilter = Object.assign(mkFilter(otherTypes[0]), {decayTypes: otherTypes});
+  const mopUpCrit = {region:c.region, variable:c.variable, principle:c.principle, value:c.value, limitsFile:'', advanced:true, isMopUp:true, filters:[mopUpFilter]};
+  (item.conditions||[]).forEach(cond=>{ cond.push(true); cond.push(true); });
+  item.criteria.push(excCrit, mopUpCrit);
+  const excIdx = item.criteria.length-2, mopIdx = item.criteria.length-1;
+  item.conditions = item.conditions || [];
+  item.conditions.push(item.criteria.map((cc,idx)=> idx===ci ? null : true));
+  delete c._excDraft;
+  delete c._showExcForm;
+  expandedCriteria.add(criterionKey(kind, id, excIdx));
+  expandedCriteria.add(criterionKey(kind, id, mopIdx));
+  if(kind==='ord'){ renderOrders(); if(typeof renderNetworkInspector==='function') renderNetworkInspector(); }
+  else { renderActions(); }
+}
+// here so every enumerable choice (region, variable, ceiling/floor, node, filter kind, half-life
+// direction/unit) opens the same kind of menu instead of mixing dropdowns and buttons. ----
+let lastCritPicker = null; // {menuKind, kind, id, ci, fi} of the currently-open popover, so a
+                            // click inside it (e.g. a decay-type chip) can repaint in place.
+function closeCritPicker(){
+  const m = document.getElementById('crit-picker-menu');
+  if(m) m.remove();
+  lastCritPicker = null;
+}
+function critPickerItemsHtml(menuKind, kind, id, ci, fi){
+  const item = (kind==='ord' ? orders : actions).find(x=>x.id===id);
+  if(!item) return '';
+  const c = item.criteria[ci];
+  const upd = kind==='ord' ? 'updateCriterion' : 'updateActCriterion';
+  const opt = (v,l,current)=>`<button class="${current===v?'crit-picked':''}" onclick="closeCritPicker();${upd}('${id}',${ci},'${menuKind==='targetnode'?'targetNode':menuKind}','${v}')">${current===v?'\u2713 ':''}${esc(l)}</button>`;
+  if(menuKind==='region') return opt('package','a package',c.region) + opt('node','a whole node',c.region);
+  if(menuKind==='variable'){
+    const defs = kind==='ord' ? ORDER_CRITERIA_VARIABLE_DEFS : CRITERIA_VARIABLE_DEFS;
+    return defs.map(d=>opt(d.value,d.label,c.variable)).join('');
+  }
+  if(menuKind==='principle') return opt('min','at most',c.principle) + opt('max','at least',c.principle);
+  if(menuKind==='targetnode'){
+    return `<button class="${!c.targetNode?'crit-picked':''}" onclick="closeCritPicker();${upd}('${id}',${ci},'targetNode','')">${!c.targetNode?'\u2713 ':''}(candidate node)</button>`
+      + nodes.map(n=>opt(n.id,n.label,c.targetNode)).join('');
+  }
+  if(menuKind==='addfilter'){
+    let html = [
+      {v:'nuclide', l:'a specific nuclide'},
+      {v:'decaytype', l:'a decay type'},
+      {v:'halflife', l:'a half-life band'}
+    ].map(o=>`<button onclick="closeCritPicker();addFilterRow('${id}',${ci},'${o.v}')">${o.l}</button>`).join('');
+    if(eligibleForAutoException(c)){
+      html += `<button onclick="closeCritPicker();showExcForm('${kind}','${id}',${ci})">except for a decay type&hellip;</button>`;
+    }
+    return html;
+  }
+  if(menuKind==='exceptiontype'){
+    c._excDraft = c._excDraft || {type:'alpha', value:''};
+    return DECAY_TYPES.map(d=>`<button class="${c._excDraft.type===d?'crit-picked':''}" onclick="closeCritPicker();setExcDraftType('${kind}','${id}',${ci},'${d}')">${c._excDraft.type===d?'\u2713 ':''}${esc(d)}</button>`).join('');
+  }
+  return '';
+}
+// half-life compare / unit use a dedicated builder (they update a filter row, not the
+// criterion itself, so they need fi and a different update function).
+function critFilterPickerItemsHtml(menuKind, kind, id, ci, fi){
+  const item = (kind==='ord' ? orders : actions).find(x=>x.id===id);
+  const f = item.criteria[ci].filters[fi];
+  const optf = (key,v,l,current)=>`<button class="${current===v?'crit-picked':''}" onclick="closeCritPicker();updateFilterRow('${id}',${ci},${fi},'${key}','${v}')">${current===v?'\u2713 ':''}${esc(l)}</button>`;
+  if(menuKind==='hlcompare') return optf('hlCompare','-','under',f.hlCompare) + optf('hlCompare','+','over',f.hlCompare);
+  if(menuKind==='hlunit') return ['y','m','d','h'].map(u=>optf('hlUnit',u,{y:'years',m:'months',d:'days',h:'hours'}[u],f.hlUnit)).join('');
+  return '';
+}
+function showCritPicker(evt, menuKind, kind, id, ci, fi){
+  evt.stopPropagation();
+  closeCritPicker(); closeActionInsertMenu();
+  const menu = document.createElement('div');
+  menu.id = 'crit-picker-menu';
+  menu.className = 'action-insert-menu';
+  menu.innerHTML = (menuKind==='hlcompare'||menuKind==='hlunit')
+    ? critFilterPickerItemsHtml(menuKind, kind, id, ci, fi)
+    : critPickerItemsHtml(menuKind, kind, id, ci, fi);
+  document.body.appendChild(menu);
+  lastCritPicker = {menuKind, kind, id, ci, fi};
+  positionFloatingMenu(menu, evt.currentTarget);
+}
+function positionFloatingMenu(menu, anchorEl){
+  const rect = anchorEl.getBoundingClientRect();
+  const menuRect = menu.getBoundingClientRect();
+  let left = rect.left;
+  left = Math.max(8, Math.min(left, window.innerWidth - menuRect.width - 8));
+  let top = rect.bottom + 6;
+  if(top + menuRect.height > window.innerHeight - 8) top = rect.top - menuRect.height - 6;
+  menu.style.left = left + 'px';
+  menu.style.top = top + 'px';
+}
+document.addEventListener('click', e=>{
+  const menu = document.getElementById('crit-picker-menu');
+  if(menu && !menu.contains(e.target) && !e.target.closest('.crit-pick-trigger') && !e.target.closest('.add-restriction-btn')) closeCritPicker();
+});
+function critPickBtn(label, menuKind, kind, id, ci, fi){
+  const fiArg = fi===undefined ? 'undefined' : fi;
+  return `<button type="button" class="crit-pick-trigger" onclick="showCritPicker(event,'${menuKind}','${kind}','${id}',${ci},${fiArg})">${esc(label)}<svg class="crit-pick-caret" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`;
+}
+
 // Progressive-disclosure nuclide-filter section: only shown when the chosen variable is
 // actually nuclide-specific. Mass and volume don't care which nuclides are in the package,
 // so the filter UI is hidden entirely for those — no more puzzled users wondering what
-// "nuclide filter" means for a mass criterion.
-function nuclideFilterSubblockHtml(oid, ci, c){
+// "nuclide filter" means for a mass criterion. Returns an inline continuation to be embedded
+// directly inside the SAME sentence as the main criterion line (not a separate block below
+// it) — e.g. "...must be at most 400, for Co60, Sr90 and beta- emitters" — so the comma and
+// the restrictions are visibly part of one flowing sentence, on mobile too.
+function nuclideFilterClauseHtml(oid, ci, c){
   const filters = c.filters || [];
-  const addFn = 'addFilterRow';
-  return `
-    <div class="subblock">
-      <div class="subblock-title">Which nuclides? ${help('By default the criterion applies to the whole package/node value (all nuclides combined). Add filters below to restrict it — only nuclides matching every filter below count toward the threshold.')}</div>
-      ${filters.length ? `
-        <div class="rows">
-          ${filters.map((f,fi)=> renderFilterRow(oid,ci,c,f,fi)).join('')}
-        </div>
-      ` : `<p class="criterion-empty" style="margin-top:0;">No filter &mdash; the criterion applies to all nuclides combined.</p>`}
-      <div class="filter-add-row">
-        <button class="ghost small" onclick="${addFn}('${oid}',${ci},'nuclide')">+ a specific nuclide</button>
-        <button class="ghost small" onclick="${addFn}('${oid}',${ci},'decaytype')">+ a decay type</button>
-        <button class="ghost small" onclick="${addFn}('${oid}',${ci},'halflife')">+ a half-life band</button>
-      </div>
-    </div>`;
+  const frags = filters.map((f,fi)=>renderFilterFragment('ord',oid,ci,c,f,fi));
+  const addBtn = `<button type="button" class="add-restriction-btn" title="add a restriction" onclick="showCritPicker(event,'addfilter','ord','${oid}',${ci})">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>
+    </button>`;
+  if(!filters.length){
+    return `${addBtn} ${help('Applies to the whole package/node value (all nuclides combined) until you add a restriction with the + button.')}`;
+  }
+  return `<span class="filter-join">,</span> <span class="lead">for</span> ${joinFragsHtml(frags)} ${addBtn} ${help('Restrictions are ANDed together — a nuclide must match all of them at once to count toward the threshold above.')}`;
 }
 // Mix criteria (activity_mix / activity_concentration_mix) also operate per-nuclide, but
-// take a limits file plus a plain nuclide list rather than the full filter row UI.
+// take a limits file plus a plain nuclide list rather than the full restriction sentence.
 function mixCriteriaSubblockHtml(oid, ci, c){
+  const filters = c.filters || [];
+  const frags = filters.map((f,fi)=>renderFilterFragment('ord',oid,ci,c,f,fi));
   return `
-    <div class="subblock">
-      <div class="subblock-title">Nuclides to include ${help('Sums value / limit across each nuclide below, then checks the total against the cumulative limit above.')}</div>
-      <div class="field span2"><label>Limits file (optional JSON path) ${help('A JSON file of {"nuclide": limit} pairs, read at run time — this tool only stores the path.')}</label>
-        <input type="text" placeholder="e.g. limits/site_limits.json" value="${esc(c.limitsFile||'')}" oninput="updateCriterionSilent('${oid}',${ci},'limitsFile',this.value)">
-      </div>
-      ${(c.filters||[]).length ? `
-        <div class="rows" style="margin-top:8px;">
-          ${c.filters.map((f,fi)=> renderFilterRow(oid,ci,c,f,fi)).join('')}
-        </div>
-      ` : '<p class="criterion-empty" style="margin-top:8px;">No nuclides yet &mdash; add at least one below.</p>'}
-      <div class="filter-add-row">
-        <button class="ghost small" onclick="addFilterRow('${oid}',${ci},'nuclide')">+ a specific nuclide</button>
-        <button class="ghost small" onclick="addFilterRow('${oid}',${ci},'decaytype')">+ a decay type</button>
-        <button class="ghost small" onclick="addFilterRow('${oid}',${ci},'halflife')">+ a half-life band</button>
-      </div>
+    <div class="field span2" style="max-width:340px;margin:2px 0 8px 0;"><label>Limits file (optional JSON path) ${help('A JSON file of {"nuclide": limit} pairs, read at run time — this tool only stores the path.')}</label>
+      <input type="text" placeholder="e.g. limits/site_limits.json" value="${esc(c.limitsFile||'')}" oninput="updateCriterionSilent('${oid}',${ci},'limitsFile',this.value)">
+    </div>
+    <div class="filter-sentence">
+      <span class="lead">including</span> ${joinFragsHtml(frags) || '<span class="lead">no nuclides yet</span>'}
+      <button type="button" class="add-restriction-btn" title="add a nuclide" onclick="showCritPicker(event,'addfilter','ord','${oid}',${ci})">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>
+      </button>
+      ${help('Sums value / limit across each nuclide here, then checks the total against the cumulative limit above.')}
     </div>`;
 }
 // Order-criterion body. Reads top-to-bottom as the actual logical flow of the criterion:
 // Where does it apply → What gets measured → Which nuclides (only when relevant) → Threshold.
-// The old "advanced filters" toggle is gone — filters appear inline as soon as the chosen
-// variable makes them meaningful, so the user never has to know to go looking for them.
+// Every enumerable choice opens the same floating pick-menu the actions timeline's "+" uses,
+// instead of native "select" boxes, so the whole builder feels like one consistent tool.
 function orderCriterionBodyHtml(oid, c, ci){
   const mix = isMixVariable(c.variable);
   const nucSpecific = isNuclideSpecificVariable(c.variable);
+  const varDefs = ORDER_CRITERIA_VARIABLE_DEFS;
   return `
-    <div class="field-grid">
-      <div class="field"><label>Applies to ${help('Whether the threshold is checked against a single package, or against a whole node at once.')}</label>
-        <select onchange="updateCriterion('${oid}',${ci},'region',this.value)">
-          <option value="package" ${c.region==='package'?'selected':''}>a package</option>
-          <option value="node" ${c.region==='node'?'selected':''}>a whole node</option>
-        </select>
-      </div>
-      <div class="field"><label>What to measure ${help('Each variable is either a scalar (mass, volume) or a per-nuclide quantity (activity, heat, etc.) that sums across nuclides by default.')}</label>
-        <select onchange="updateCriterion('${oid}',${ci},'variable',this.value)">
-          ${variableOptionsHtml(ORDER_CRITERIA_VARIABLE_DEFS, c.variable)}
-        </select>
-      </div>
-      <div class="field"><label>Must be ${help('at most = the value must not exceed the threshold (a ceiling). at least = the value must reach the threshold (a floor).')}</label>
-        <select onchange="updateCriterion('${oid}',${ci},'principle',this.value)">
-          <option value="min" ${c.principle==='min'?'selected':''}>at most</option>
-          <option value="max" ${c.principle==='max'?'selected':''}>at least</option>
-        </select>
-      </div>
-      <div class="field"><label>${mix?'Cumulative limit (usually 1)':'Threshold'}</label>${distField(c.value, `updateCriterionSilent('${oid}',${ci},'value',this.value)`, null, {id:`dist-critval-${oid}-${ci}`})}</div>
+    <div class="crit-sentence">
+      <span class="lead">A</span>
+      ${critPickBtn(c.region==='node'?'whole node':'package', 'region', 'ord', oid, ci)}
+      <span class="lead">'s</span>
+      ${critPickBtn(criteriaVariableLabel(varDefs, c.variable), 'variable', 'ord', oid, ci)}
+      <span class="lead">must be</span>
+      ${critPickBtn(c.principle==='max'?'at least':'at most', 'principle', 'ord', oid, ci)}
+      <span class="crit-value-wrap">${distField(c.value, `updateCriterionSilent('${oid}',${ci},'value',this.value)`, null, {id:`dist-critval-${oid}-${ci}`, placeholder: mix?'e.g. 1':'threshold'})}</span>
+      ${mix ? '<span class="crit-unit">(cumulative ratio)</span>' : ''}
+      ${nucSpecific && !mix ? nuclideFilterClauseHtml(oid, ci, c) : ''}
+      ${help(mix ? 'Cumulative limit for the nuclide mix below (usually 1) — sums value/limit across each listed nuclide and compares the total to this.' : 'at most = a ceiling the value must not exceed. at least = a floor the value must reach. Each variable is either a scalar (mass, volume) or a per-nuclide quantity that sums across nuclides by default.')}
     </div>
     ${c.region==='node' ? `
-    <div class="field-grid" style="margin-top:8px;">
-      <div class="field span2"><label>Which node ${help('Leave blank to check whichever candidate node the order is currently considering, or pick a specific node to always check that one.')}</label>
-        <select onchange="updateCriterion('${oid}',${ci},'targetNode',this.value)"><option value="">(candidate node)</option>${nodeIdOptionList(c.targetNode)}</select>
-      </div>
+    <div class="crit-sentence secondary crit-node-picker">
+      <span class="lead">at</span>
+      ${critPickBtn(c.targetNode ? nodeLabelById(c.targetNode) : '(candidate node)', 'targetnode', 'ord', oid, ci)}
+      ${help('Leave as "(candidate node)" to check whichever node the order is currently considering, or pick a specific node to always check that one.')}
     </div>` : ''}
-    ${nucSpecific ? (mix ? mixCriteriaSubblockHtml(oid, ci, c) : nuclideFilterSubblockHtml(oid, ci, c)) : ''}
+    ${mix ? mixCriteriaSubblockHtml(oid, ci, c) : ''}
   `;
 }
 function actCriterionBodyHtml(aid, c, ci){
   return `
-    <div class="field-grid">
-      <div class="field"><label>Applies to</label>
-        <select onchange="updateActCriterion('${aid}',${ci},'region',this.value)">
-          <option value="package" ${c.region==='package'?'selected':''}>a package</option>
-          <option value="node" ${c.region==='node'?'selected':''}>a whole node</option>
-        </select>
-      </div>
-      <div class="field"><label>What to measure</label>
-        <select onchange="updateActCriterion('${aid}',${ci},'variable',this.value)">
-          ${variableOptionsHtml(CRITERIA_VARIABLE_DEFS, c.variable)}
-        </select>
-      </div>
-      <div class="field"><label>Must be</label>
-        <select onchange="updateActCriterion('${aid}',${ci},'principle',this.value)">
-          <option value="min" ${c.principle==='min'?'selected':''}>at most</option>
-          <option value="max" ${c.principle==='max'?'selected':''}>at least</option>
-        </select>
-      </div>
-      <div class="field"><label>Threshold</label>${distField(c.value, `updateActCriterionSilent('${aid}',${ci},'value',this.value)`, null, {id:`dist-actcritval-${aid}-${ci}`})}</div>
+    <div class="crit-sentence">
+      <span class="lead">A</span>
+      ${critPickBtn(c.region==='node'?'whole node':'package', 'region', 'act', aid, ci)}
+      <span class="lead">'s</span>
+      ${critPickBtn(criteriaVariableLabel(CRITERIA_VARIABLE_DEFS, c.variable), 'variable', 'act', aid, ci)}
+      <span class="lead">must be</span>
+      ${critPickBtn(c.principle==='max'?'at least':'at most', 'principle', 'act', aid, ci)}
+      <span class="crit-value-wrap">${distField(c.value, `updateActCriterionSilent('${aid}',${ci},'value',this.value)`, null, {id:`dist-actcritval-${aid}-${ci}`, placeholder:'threshold'})}</span>
+      ${help('at most = a ceiling the value must not exceed. at least = a floor the value must reach.')}
     </div>`;
 }
 
@@ -2796,64 +3124,60 @@ function addCondition(oid){
 function removeCondition(oid,ci){ orders.find(o=>o.id===oid).conditions.splice(ci,1); renderOrders(); if(typeof renderNetworkInspector==='function') renderNetworkInspector(); }
 function toggleCondition(oid,condi,ci){ const o=orders.find(o=>o.id===oid); const cur=o.conditions[condi][ci]===undefined?true:o.conditions[condi][ci]; o.conditions[condi][ci]=cycleConditionState(cur); renderOrders(); if(typeof renderNetworkInspector==='function') renderNetworkInspector(); }
 function addFilterRow(oid,ci,kind){
-  orders.find(o=>o.id===oid).criteria[ci].filters.push({id:nid(), kind, nuclideName:'', decayType:'alpha', decayTypeCustom:'', hlCompare:'-', hlMagnitude:'', hlUnit:'y', tokenValue:''});
+  orders.find(o=>o.id===oid).criteria[ci].filters.push({id:nid(), kind, nuclideName:'', decayTypes:kind==='decaytype'?['alpha']:[], decayTypeCustom:'', hlCompare:'-', hlMagnitude:'', hlUnit:'y', tokenValue:''});
   renderOrders();
   if(typeof renderNetworkInspector==='function') renderNetworkInspector();
 }
 function updateFilterRow(oid,ci,fi,key,val){ orders.find(o=>o.id===oid).criteria[ci].filters[fi][key]=val; renderOrders(); if(typeof renderNetworkInspector==='function') renderNetworkInspector(); }
 function removeFilterRow(oid,ci,fi){ orders.find(o=>o.id===oid).criteria[ci].filters.splice(fi,1); renderOrders(); if(typeof renderNetworkInspector==='function') renderNetworkInspector(); }
+// Decay type is a multi-select: toggling a chip adds/removes it from the filter's decayTypes
+// list. Re-renders (not silent) since the chip's on/off state needs to repaint immediately.
+function toggleFilterDecayType(oid,ci,fi,type){
+  const f = orders.find(o=>o.id===oid).criteria[ci].filters[fi];
+  f.decayTypes = f.decayTypes || [];
+  const idx = f.decayTypes.indexOf(type);
+  if(idx>=0) f.decayTypes.splice(idx,1); else f.decayTypes.push(type);
+  renderOrders();
+  if(typeof renderNetworkInspector==='function') renderNetworkInspector();
+}
 
-// Each filter row is now prefixed with a small type badge ("nuclide" / "decay type" /
-// "half-life") so it's obvious at a glance what kind of restriction each row is, and the
-// half-life row reads more like a sentence: "half-life under 30 y".
-function renderFilterRow(oid,ci,c,f,fi){
+// Each restriction renders inline as one comma-separated piece of the sentence above it —
+// an editable nuclide name, a group of decay-type chips, or a half-life clause — with any
+// per-restriction threshold override or leftover custom decay string tucked into a small
+// "(...)" parenthetical right after it, rather than a separate boxed row. A decay-type
+// restriction built by the automatic exception wizard also carries its own half-life
+// sub-clause (f.alsoHalflife) so it reads "alpha emitters with half-lives over 30 years"
+// and stays fully editable afterwards.
+function renderFilterFragment(kind,oid,ci,c,f,fi){
   const mix = isMixVariable(c.variable);
-  let kindLabel = '';
-  let inner = '';
+  let editable = '';
+  let paren = [];
   if(f.kind==='nuclide'){
-    kindLabel = 'nuclide';
-    inner = `
-      <div class="field" style="flex:2 1 200px;"><label>Nuclide name ${help('Restrict this criterion to just this one nuclide instead of the whole package/node.')}</label>
-        <input type="text" list="nuclide-suggestions" placeholder="e.g. Co60 or Am242_m1" value="${esc(f.nuclideName)}"
-          oninput="updateFilterRowSilent('${oid}',${ci},${fi},'nuclideName',this.value)"
-          onblur="normalizeFieldOnBlur(this, v=>updateFilterRow('${oid}',${ci},${fi},'nuclideName',v))">
-      </div>`;
+    editable = `<input type="text" list="nuclide-suggestions" placeholder="nuclide" value="${esc(f.nuclideName)}"
+      oninput="updateFilterRowSilent('${oid}',${ci},${fi},'nuclideName',this.value)"
+      onblur="normalizeFieldOnBlur(this, v=>updateFilterRow('${oid}',${ci},${fi},'nuclideName',v))">`;
   } else if(f.kind==='decaytype'){
-    kindLabel = 'decay type';
-    inner = `
-      <div class="field"><label>Decays by ${help('Restrict this criterion to nuclides that decay by this mode, e.g. only alpha emitters.')}</label>
-        <select onchange="updateFilterRow('${oid}',${ci},${fi},'decayType',this.value)">
-          ${DECAY_TYPES.map(d=>`<option value="${d}" ${f.decayType===d?'selected':''}>${d}${d==='alpha'?' (alpha emitters)':''}</option>`).join('')}
-          <option value="custom" ${f.decayType==='custom'?'selected':''}>custom&hellip;</option>
-        </select>
-      </div>
-      ${f.decayType==='custom' ? `<div class="field"><label>Custom type string</label><input type="text" value="${esc(f.decayTypeCustom)}" oninput="updateFilterRowSilent('${oid}',${ci},${fi},'decayTypeCustom',this.value)"></div>` : ''}`;
+    const selected = f.decayTypes || [];
+    editable = `<span class="decay-chip-group">
+        ${DECAY_TYPES.map(d=>`<button type="button" class="decay-chip ${selected.includes(d)?'on':''}" onclick="toggleFilterDecayType('${oid}',${ci},${fi},'${d}')" title="${d==='alpha'?'alpha emitters':d}">${esc(d)}</button>`).join('')}
+      </span> <span class="lead">emitters</span>`;
+    if(f.alsoHalflife){
+      editable += ` <span class="lead">w/ half-lives</span>
+        ${critPickBtn(f.hlCompare==='+'?'over':'under', 'hlcompare', kind, oid, ci, fi)}
+        <span class="crit-value-wrap">${distField(f.hlMagnitude, `updateFilterRowSilent('${oid}',${ci},${fi},'hlMagnitude',this.value)`, null, {id:`dist-hlmag-${oid}-${ci}-${fi}`, placeholder:'amount'})}</span>
+        ${critPickBtn({y:'years',m:'months',d:'days',h:'hours'}[f.hlUnit]||'years', 'hlunit', kind, oid, ci, fi)}`;
+    }
+    if(selected.length>1) paren.push('matches all selected modes at once');
+    if(f.decayTypeCustom) paren.push(`also ${esc(f.decayTypeCustom)} <button type="button" class="rm" onclick="updateFilterRow('${oid}',${ci},${fi},'decayTypeCustom','')" title="remove (imported from an older file)">&times;</button>`);
   } else if(f.kind==='halflife'){
-    kindLabel = 'half-life';
-    inner = `
-      <div class="field narrow"><label>Half-life ${help('Restrict this criterion to nuclides whose half-life is under or over the amount below.')}</label>
-        <select onchange="updateFilterRow('${oid}',${ci},${fi},'hlCompare',this.value)">
-          <option value="-" ${f.hlCompare==='-'?'selected':''}>under</option>
-          <option value="+" ${f.hlCompare==='+'?'selected':''}>over</option>
-        </select>
-      </div>
-      <div class="field narrow"><label>Amount</label>${distField(f.hlMagnitude, `updateFilterRowSilent('${oid}',${ci},${fi},'hlMagnitude',this.value)`, null, {id:`dist-hlmag-${oid}-${ci}-${fi}`})}</div>
-      <div class="field narrow"><label>Unit</label>
-        <select onchange="updateFilterRow('${oid}',${ci},${fi},'hlUnit',this.value)">
-          <option value="y" ${f.hlUnit==='y'?'selected':''}>years</option>
-          <option value="m" ${f.hlUnit==='m'?'selected':''}>months</option>
-          <option value="d" ${f.hlUnit==='d'?'selected':''}>days</option>
-          <option value="h" ${f.hlUnit==='h'?'selected':''}>hours</option>
-        </select>
-      </div>`;
+    editable = `<span class="lead">radionuclides w/ half-lives</span>
+      ${critPickBtn(f.hlCompare==='+'?'over':'under', 'hlcompare', kind, oid, ci, fi)}
+      <span class="crit-value-wrap">${distField(f.hlMagnitude, `updateFilterRowSilent('${oid}',${ci},${fi},'hlMagnitude',this.value)`, null, {id:`dist-hlmag-${oid}-${ci}-${fi}`, placeholder:'amount'})}</span>
+      ${critPickBtn({y:'years',m:'months',d:'days',h:'hours'}[f.hlUnit]||'years', 'hlunit', kind, oid, ci, fi)}`;
   }
-  return `
-    <div class="filter-row">
-      <span class="filter-kind-badge">${kindLabel}</span>
-      ${inner}
-      ${mix ? '' : `<div class="field narrow"><label>Threshold override ${help('Optional — use a different threshold for just this filter row instead of the criterion\'s shared threshold above.')}</label>${distField(f.tokenValue, `updateFilterRowSilent('${oid}',${ci},${fi},'tokenValue',this.value)`, null, {placeholder:'uses shared', id:`dist-tokenval-${oid}-${ci}-${fi}`})}</div>`}
-      <button class="rm" onclick="removeFilterRow('${oid}',${ci},${fi})">&times;</button>
-    </div>`;
+  if(!mix) paren.push(`limit <span class="crit-value-wrap">${distField(f.tokenValue, `updateFilterRowSilent('${oid}',${ci},${fi},'tokenValue',this.value)`, null, {placeholder:'shared', id:`dist-tokenval-${oid}-${ci}-${fi}`})}</span>`);
+  const parenHtml = paren.length ? ` <span class="fc-extra">(${paren.join('; ')})</span>` : '';
+  return `<span class="filter-frag">${editable}${parenHtml}<button class="rm" onclick="removeFilterRow('${oid}',${ci},${fi})" title="remove this restriction">&times;</button></span>`;
 }
 // silent update = don't re-render on every keystroke (keeps focus in text/number inputs), just rebuild XML
 function updateFilterRowSilent(oid,ci,fi,key,val){ orders.find(o=>o.id===oid).criteria[ci].filters[fi][key]=val; buildXML(); }
@@ -3374,9 +3698,40 @@ function xmlEscAttr(s){ return String(s).replace(/&/g,'&amp;').replace(/"/g,'&qu
 
 function filterToken(f){
   if(f.kind==='nuclide') return normalizeNuclide(f.nuclideName||'');
-  if(f.kind==='decaytype') return f.decayType==='custom' ? (f.decayTypeCustom||'') : f.decayType;
+  if(f.kind==='decaytype'){
+    // Multiple selected decay types are joined with a comma, which the (unmodified) simulator's
+    // recalculate_composition() already treats as an AND-intersection (a nuclide must match
+    // every listed piece) -- this is the same native mechanism a single custom string used
+    // before, just reachable from a multi-select instead of only free text. When the
+    // restriction also carries a half-life band (f.alsoHalflife, set by the automatic
+    // exception wizard), that band is joined in as one more comma piece, e.g. "+30y,alpha" --
+    // this is the exact same existing intersection mechanism, just combining a half-life piece
+    // with a decay-type piece instead of two decay-type pieces. Nothing about the simulator
+    // needs to change for this to work.
+    const list = (f.decayTypes||[]).slice();
+    if(f.decayTypeCustom) list.push(...String(f.decayTypeCustom).split(',').map(s=>s.trim()).filter(Boolean));
+    const dtTok = list.filter(Boolean).join(',');
+    if(!dtTok) return '';
+    if(f.alsoHalflife && f.hlMagnitude!=='' && f.hlMagnitude!==undefined && f.hlMagnitude!==null){
+      return `${f.hlCompare}${f.hlMagnitude}${f.hlUnit},${dtTok}`;
+    }
+    return dtTok;
+  }
   if(f.kind==='halflife') return `${f.hlCompare}${f.hlMagnitude||0}${f.hlUnit}`;
   return '';
+}
+// Most filters produce exactly one XML <nuclide> token. A decay-type restriction combined with
+// a half-life band (f.alsoHalflife) and more than one selected type is the exception: joining
+// all the types into one comma token would mean "matches every type at once" (AND), which is
+// almost never true for real nuclide data -- so this expands it into one token per type
+// instead, each still combined with the same half-life band and sharing the same threshold, so
+// "any of these other types" stays correct without needing a separate filter row per type.
+function filterTokens(f){
+  if(f.kind==='decaytype' && f.alsoHalflife && (f.decayTypes||[]).length>1){
+    return f.decayTypes.map(d=>filterToken(Object.assign({}, f, {decayTypes:[d]}))).filter(Boolean);
+  }
+  const t = filterToken(f);
+  return t ? [t] : [];
 }
 
 // A condition row with one or more null ("doesn't matter") entries isn't directly
@@ -3472,16 +3827,18 @@ function buildXML(){
         if(activeFilters.length){
           lines.push(`      <criteria ${cAttrs.join(' ')}>`);
           activeFilters.forEach(f=>{
-            if(mix){
-              // Mix criteria compare a single cumulative sum to the shared threshold above — a
-              // per-nuclide criteria value here would turn that threshold into a list and break it.
-              lines.push(`        <nuclide name="${xmlEscAttr(filterToken(f))}"/>`);
-            } else {
-              // per-nuclide criteria value must always be present once a nuclide list exists,
-              // otherwise the list length mismatches downstream — fall back to the shared threshold.
-              const val = (f.tokenValue!=='' ? f.tokenValue : (c.value!=='' ? c.value : 0));
-              lines.push(`        <nuclide name="${xmlEscAttr(filterToken(f))}" criteria="${xmlEscAttr(val)}"/>`);
-            }
+            filterTokens(f).forEach(tok=>{
+              if(mix){
+                // Mix criteria compare a single cumulative sum to the shared threshold above — a
+                // per-nuclide criteria value here would turn that threshold into a list and break it.
+                lines.push(`        <nuclide name="${xmlEscAttr(tok)}"/>`);
+              } else {
+                // per-nuclide criteria value must always be present once a nuclide list exists,
+                // otherwise the list length mismatches downstream — fall back to the shared threshold.
+                const val = (f.tokenValue!=='' ? f.tokenValue : (c.value!=='' ? c.value : 0));
+                lines.push(`        <nuclide name="${xmlEscAttr(tok)}" criteria="${xmlEscAttr(val)}"/>`);
+              }
+            });
           });
           lines.push('      </criteria>');
         } else {
@@ -3625,13 +3982,31 @@ function downloadXML(){
 
 /* ===================== LOAD .xml (reverse of buildXML) ===================== */
 function classifyFilterToken(token){
-  // The exported XML only keeps the resolved token, not which picker built it,
-  // so this is a best-effort guess — check the result and fix it up if it's wrong.
-  const hl = token.match(/^([+-])(\d+(?:\.\d+)?)(y|m|d|h)$/i);
-  if(hl) return {kind:'halflife', hlCompare:hl[1], hlMagnitude:hl[2], hlUnit:hl[3].toLowerCase()};
-  if(DECAY_TYPES.includes(token)) return {kind:'decaytype', decayType:token};
-  if(/^[A-Za-z]+\d+(_m\d+)?$/.test(token) || /^\d+[A-Za-z]+(_m\d+)?$/.test(token)) return {kind:'nuclide', nuclideName:normalizeNuclide(token)};
-  return {kind:'decaytype', decayType:'custom', decayTypeCustom:token};
+  // The exported XML only keeps the resolved token, not which picker built it, so this is a
+  // best-effort guess — check the result and fix it up if it's wrong. A single token with no
+  // comma is either a plain nuclide name or a plain half-life band; a comma-joined token is a
+  // set of decay-type pieces, optionally with exactly one half-life piece mixed in (which is
+  // what the automatic exception wizard produces, e.g. "+30y,alpha").
+  if(!token.includes(',') && (/^[A-Za-z]+\d+(_m\d+)?$/.test(token) || /^\d+[A-Za-z]+(_m\d+)?$/.test(token))){
+    return {kind:'nuclide', nuclideName:normalizeNuclide(token)};
+  }
+  const hlPattern = /^([+-])(\d+(?:\.\d+)?)(y|m|d|h)$/i;
+  const parts = token.split(',').map(s=>s.trim()).filter(Boolean);
+  const hlParts = parts.filter(p=>hlPattern.test(p));
+  const restParts = parts.filter(p=>!hlPattern.test(p));
+  if(parts.length===1 && hlParts.length===1){
+    const m = hlParts[0].match(hlPattern);
+    return {kind:'halflife', hlCompare:m[1], hlMagnitude:m[2], hlUnit:m[3].toLowerCase()};
+  }
+  const known = restParts.filter(p=>DECAY_TYPES.includes(p));
+  const custom = restParts.filter(p=>!DECAY_TYPES.includes(p));
+  const base = {kind:'decaytype', decayTypes:known, decayTypeCustom:custom.join(',')};
+  if(hlParts.length===1){
+    const m = hlParts[0].match(hlPattern);
+    base.alsoHalflife = true;
+    base.hlCompare = m[1]; base.hlMagnitude = m[2]; base.hlUnit = m[3].toLowerCase();
+  }
+  return base;
 }
 function parseCriteriaEl(critEl, nodeIdByLabelImport){
   const c = {
@@ -3649,7 +4024,7 @@ function parseCriteriaEl(critEl, nodeIdByLabelImport){
     c.filters = nucEls.map(ne=>{
       const token = ne.getAttribute('name')||'';
       const guess = classifyFilterToken(token);
-      return Object.assign({id:nid(), kind:guess.kind, nuclideName:'', decayType:'alpha', decayTypeCustom:'', hlCompare:'-', hlMagnitude:'', hlUnit:'y', tokenValue: ne.getAttribute('criteria')||''}, guess);
+      return Object.assign({id:nid(), kind:guess.kind, nuclideName:'', decayTypes:[], decayTypeCustom:'', hlCompare:'-', hlMagnitude:'', hlUnit:'y', tokenValue: ne.getAttribute('criteria')||''}, guess);
     });
   }
   return c;
@@ -4743,8 +5118,10 @@ function rectEdgePoint(box, towardX, towardY){
 }
 function orderCriteriaSummary(o){
   if(!o.criteria || !o.criteria.length) return 'no criteria — matches every package';
-  const parts = o.criteria.map(c=> `${c.region}.${c.variable} ${c.principle} ${c.value!==''&&c.value!==undefined?c.value:'?'}`);
-  let text = parts.join('; ');
+  // Full plain-language sentence per criterion (same wording as the criteria list/rule preview)
+  // — this only feeds the native SVG hover tooltip, which isn't pixel-width constrained the
+  // way the on-canvas chips below are, so it can afford to read naturally instead of tersely.
+  let text = o.criteria.map(c=> stripTags(criterionPlainSentence(c, ORDER_CRITERIA_VARIABLE_DEFS, nodes))).join('; ');
   if(o.conditions && o.conditions.length && o.criteria.length>1){
     text += ` (+ ${o.conditions.length} alternative combination${o.conditions.length>1?'s':''})`;
   }
