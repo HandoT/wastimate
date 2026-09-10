@@ -315,6 +315,11 @@
   .filter-row .rm{background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:16px;padding:6px;}
   .filter-row .rm:hover{color:var(--danger);}
   .filter-add-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;}
+  .filter-kind-badge{
+    font-family:var(--mono);font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;
+    color:var(--amber-dim);border:1px solid var(--amber-dim);border-radius:10px;padding:3px 8px;
+    flex:none;background:transparent;line-height:1;margin-bottom:9px;
+  }
 
   /* ---------- alternative conditions (OR-combinations of criteria) ---------- */
   .condition-row{display:flex;gap:14px;flex-wrap:wrap;padding-right:22px;}
@@ -322,6 +327,21 @@
   .cond-check input{accent-color:var(--amber);}
   .cond-check.is-true{color:var(--ok);}
   .cond-check.is-false{color:var(--text-faint);}
+
+  /* ---------- criteria list (compact, collapsible — mirrors the action timeline) ---------- */
+  .criterion-list{display:flex;flex-direction:column;gap:6px;}
+  .criterion-item{background:var(--panel-alt);border:1px solid var(--border-soft);border-radius:var(--radius);overflow:hidden;transition:border-color .15s;}
+  .criterion-item.expanded{border-color:var(--border);}
+  .criterion-summary-row{display:flex;align-items:center;gap:10px;padding:8px 10px;cursor:pointer;user-select:none;}
+  .criterion-summary-row:hover{background:var(--panel);}
+  .criterion-index{font-family:var(--mono);font-size:10px;font-weight:600;color:var(--amber);border:1px solid var(--amber-dim);border-radius:50%;width:19px;height:19px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .criterion-text{font-family:var(--mono);font-size:11.5px;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .criterion-text .criterion-scope{color:var(--text-faint);}
+  .criterion-chevron{font-size:9px;color:var(--text-faint);flex-shrink:0;}
+  .criterion-remove{background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:15px;line-height:1;padding:2px 4px;flex-shrink:0;}
+  .criterion-remove:hover{color:var(--danger);}
+  .criterion-body{padding:12px;border-top:1px solid var(--border-soft);background:var(--panel);}
+  .criterion-empty{color:var(--text-faint);font-family:var(--mono);font-size:11.5px;margin:0 0 8px 0;padding:4px 2px;}
 
   /* ---------- node package push-buttons ---------- */
   .pkg-btn-row{display:flex;flex-wrap:wrap;gap:7px;}
@@ -1730,7 +1750,7 @@ function criteriaCombinationBuilderHtml(kind, id, criteria, conditions, defs, no
   const addFn = kind==='ord' ? 'addCondition' : 'addActCondition';
   const removeFn = kind==='ord' ? 'removeCondition' : 'removeActCondition';
 
-  const defaultChips = criteria.map(c=>`<span class="combo-chip chip-pass" style="cursor:default;"><span class="combo-chip-text">${esc(criterionSummary(c, defs, nodes))}</span><span class="combo-chip-state">must pass</span></span>`).join('<span class="combo-and">AND</span>');
+  const defaultChips = criteria.map(c=>`<span class="combo-chip chip-pass" style="cursor:default;"><span class="combo-chip-text">${esc(criterionSummaryCompact(c, nodes))}</span><span class="combo-chip-state">must pass</span></span>`).join('<span class="combo-and">AND</span>');
 
   const altRowsHtml = (conditions||[]).map((cond,condi)=>`
     <div class="combo-or">OR</div>
@@ -1741,7 +1761,7 @@ function criteriaCombinationBuilderHtml(kind, id, criteria, conditions, defs, no
         ${criteria.map((c,ci)=>{
           const state = cond[ci]===undefined ? true : cond[ci];
           return `<button type="button" class="combo-chip ${conditionChipClass(state)}" onclick="${toggleFn}('${id}',${condi},${ci})">
-            <span class="combo-chip-text">${esc(criterionSummary(c, defs, nodes))}</span>
+            <span class="combo-chip-text">${esc(criterionSummaryCompact(c, nodes))}</span>
             <span class="combo-chip-state">${conditionChipLabel(state)}</span>
           </button>`;
         }).join('<span class="combo-and">AND</span>')}
@@ -1760,6 +1780,31 @@ function criteriaCombinationBuilderHtml(kind, id, criteria, conditions, defs, no
     <button class="ghost small" style="margin-top:8px;" onclick="${addFn}('${id}')">+ add an alternative way to qualify</button>`;
 }
 function isMixVariable(v){ return v==='activity_mix' || v==='activity_concentration_mix'; }
+// Which variables are inherently per-nuclide. Mass and volume are the only two that aren't —
+// they're a single scalar for the whole package/node, so showing a nuclide filter for them
+// would be misleading and confusing.
+const NON_NUCLIDE_VARIABLES = new Set(['mass', 'volume']);
+function isNuclideSpecificVariable(v){ return !NON_NUCLIDE_VARIABLES.has(v); }
+// Renders a compact summary of a criterion's nuclide filters — used both in the collapsed
+// criterion summary line and on the network diagram chips, so a criterion like
+// "activity ≤ 10 for nuclides with half-life > 30y" reads that way everywhere it appears.
+function criterionFilterSummary(c){
+  if(!isNuclideSpecificVariable(c.variable)) return '';
+  const filters = (c.filters || []).filter(f => filterToken(f) !== '');
+  if(!filters.length) return '';
+  if(isMixVariable(c.variable)){
+    return `${filters.length} nuclide${filters.length>1?'s':''}`;
+  }
+  return filters.map(f => {
+    if(f.kind==='nuclide') return normalizeNuclide(f.nuclideName||'');
+    if(f.kind==='decaytype'){
+      const dt = f.decayType==='custom' ? (f.decayTypeCustom||'') : f.decayType;
+      return dt === 'alpha' ? '\u03b1-emitters' : dt;
+    }
+    if(f.kind==='halflife') return `T\u00bd ${f.hlCompare==='-'?'<':'>'} ${f.hlMagnitude||'?'}${f.hlUnit}`;
+    return '';
+  }).filter(Boolean).join(' & ');
+}
 function criteriaVariableLabel(defs, value){
   const found = defs.find(v=>v.value===value);
   return found ? found.label : (value||'value');
@@ -2534,18 +2579,191 @@ function addOrder(){
     criteria:[], conditions:[], packageOut:'', packageMass:'', sortNode:''});
   renderOrders();
 }
+
+/* ===================== CRITERIA LIST (compact, collapsible) ===================== */
+// Criteria render as one-line summary rows that expand to reveal their fields — the same
+// pattern the action timeline uses. Collapsed by default so a long criteria list stays
+// scannable, and so a first-time user can see at a glance what the order actually requires.
+let expandedCriteria = new Set();
+function criterionKey(kind, id, ci){ return `${kind}:${id}:${ci}`; }
+function toggleCriterionExpanded(kind, id, ci){
+  const key = criterionKey(kind, id, ci);
+  if(expandedCriteria.has(key)) expandedCriteria.delete(key);
+  else expandedCriteria.add(key);
+  if(kind==='ord'){
+    renderOrders();
+    if(typeof renderNetworkInspector === 'function') renderNetworkInspector();
+  } else {
+    renderActions();
+  }
+}
+// Compact one-liner used in the collapsed summary row and on the network diagram chips.
+// Includes the nuclide filter summary so a criterion with filters never silently displays
+// as if it applied to everything — a frequent source of confusion before.
+function criterionSummaryCompact(c, nodes){
+  const varLabel = chipVariableLabel(c.variable);
+  const cmp = c.principle === 'max' ? '\u2265' : '\u2264';
+  const val = (c.value !== '' && c.value !== undefined && c.value !== null) ? compactValueDisplay(c.value) : '?';
+  let core = `${varLabel} ${cmp} ${val}`;
+  if(c.region === 'node'){
+    if(c.targetNode && nodes){
+      const n = nodes.find(x=>x.id===c.targetNode);
+      core = `node ${n?n.label:'?'} \u00b7 ${core}`;
+    } else {
+      core = `node \u00b7 ${core}`;
+    }
+  } else {
+    core = `package \u00b7 ${core}`;
+  }
+  const filterSumm = criterionFilterSummary(c);
+  if(filterSumm) core += ` \u00b7 ${filterSumm}`;
+  return core;
+}
+function criterionItemHtml(kind, id, c, ci, defs, nodes){
+  const key = criterionKey(kind, id, ci);
+  const isExpanded = expandedCriteria.has(key);
+  const summary = criterionSummaryCompact(c, nodes);
+  const removeFn = kind==='ord' ? 'removeCriterion' : 'removeActCriterion';
+  return `
+    <div class="criterion-item ${isExpanded?'expanded':''}">
+      <div class="criterion-summary-row" onclick="toggleCriterionExpanded('${kind}','${id}',${ci})">
+        <span class="criterion-index">${ci+1}</span>
+        <span class="criterion-text">${esc(summary)}</span>
+        <span class="criterion-chevron">${isExpanded?'\u25b2':'\u25bc'}</span>
+        <button class="criterion-remove" onclick="event.stopPropagation();${removeFn}('${id}',${ci})" title="remove criterion">&times;</button>
+      </div>
+      ${isExpanded ? `<div class="criterion-body">${kind==='ord' ? orderCriterionBodyHtml(id, c, ci) : actCriterionBodyHtml(id, c, ci)}</div>` : ''}
+    </div>`;
+}
+function criteriaListHtml(kind, id, criteria, defs, nodes){
+  const addFn = kind==='ord' ? 'addCriterion' : 'addActCriterion';
+  const addBtn = `<button class="add" style="margin-top:8px;" onclick="${addFn}('${id}')">+ add criterion</button>`;
+  if(!criteria || !criteria.length){
+    return `<p class="criterion-empty">No criteria yet &mdash; every package matches.</p>${addBtn}`;
+  }
+  return `
+    <div class="criterion-list">
+      ${criteria.map((c,ci)=>criterionItemHtml(kind, id, c, ci, defs, nodes)).join('')}
+    </div>
+    ${addBtn}`;
+}
+// Progressive-disclosure nuclide-filter section: only shown when the chosen variable is
+// actually nuclide-specific. Mass and volume don't care which nuclides are in the package,
+// so the filter UI is hidden entirely for those — no more puzzled users wondering what
+// "nuclide filter" means for a mass criterion.
+function nuclideFilterSubblockHtml(oid, ci, c){
+  const filters = c.filters || [];
+  const addFn = 'addFilterRow';
+  return `
+    <div class="subblock">
+      <div class="subblock-title">Which nuclides? ${help('By default the criterion applies to the whole package/node value (all nuclides combined). Add filters below to restrict it — only nuclides matching every filter below count toward the threshold.')}</div>
+      ${filters.length ? `
+        <div class="rows">
+          ${filters.map((f,fi)=> renderFilterRow(oid,ci,c,f,fi)).join('')}
+        </div>
+      ` : `<p class="criterion-empty" style="margin-top:0;">No filter &mdash; the criterion applies to all nuclides combined.</p>`}
+      <div class="filter-add-row">
+        <button class="ghost small" onclick="${addFn}('${oid}',${ci},'nuclide')">+ a specific nuclide</button>
+        <button class="ghost small" onclick="${addFn}('${oid}',${ci},'decaytype')">+ a decay type</button>
+        <button class="ghost small" onclick="${addFn}('${oid}',${ci},'halflife')">+ a half-life band</button>
+      </div>
+    </div>`;
+}
+// Mix criteria (activity_mix / activity_concentration_mix) also operate per-nuclide, but
+// take a limits file plus a plain nuclide list rather than the full filter row UI.
+function mixCriteriaSubblockHtml(oid, ci, c){
+  return `
+    <div class="subblock">
+      <div class="subblock-title">Nuclides to include ${help('Sums value / limit across each nuclide below, then checks the total against the cumulative limit above.')}</div>
+      <div class="field span2"><label>Limits file (optional JSON path) ${help('A JSON file of {"nuclide": limit} pairs, read at run time — this tool only stores the path.')}</label>
+        <input type="text" placeholder="e.g. limits/site_limits.json" value="${esc(c.limitsFile||'')}" oninput="updateCriterionSilent('${oid}',${ci},'limitsFile',this.value)">
+      </div>
+      ${(c.filters||[]).length ? `
+        <div class="rows" style="margin-top:8px;">
+          ${c.filters.map((f,fi)=> renderFilterRow(oid,ci,c,f,fi)).join('')}
+        </div>
+      ` : '<p class="criterion-empty" style="margin-top:8px;">No nuclides yet &mdash; add at least one below.</p>'}
+      <div class="filter-add-row">
+        <button class="ghost small" onclick="addFilterRow('${oid}',${ci},'nuclide')">+ a specific nuclide</button>
+        <button class="ghost small" onclick="addFilterRow('${oid}',${ci},'decaytype')">+ a decay type</button>
+        <button class="ghost small" onclick="addFilterRow('${oid}',${ci},'halflife')">+ a half-life band</button>
+      </div>
+    </div>`;
+}
+// Order-criterion body. Reads top-to-bottom as the actual logical flow of the criterion:
+// Where does it apply → What gets measured → Which nuclides (only when relevant) → Threshold.
+// The old "advanced filters" toggle is gone — filters appear inline as soon as the chosen
+// variable makes them meaningful, so the user never has to know to go looking for them.
+function orderCriterionBodyHtml(oid, c, ci){
+  const mix = isMixVariable(c.variable);
+  const nucSpecific = isNuclideSpecificVariable(c.variable);
+  return `
+    <div class="field-grid">
+      <div class="field"><label>Applies to ${help('Whether the threshold is checked against a single package, or against a whole node at once.')}</label>
+        <select onchange="updateCriterion('${oid}',${ci},'region',this.value)">
+          <option value="package" ${c.region==='package'?'selected':''}>a package</option>
+          <option value="node" ${c.region==='node'?'selected':''}>a whole node</option>
+        </select>
+      </div>
+      <div class="field"><label>What to measure ${help('Each variable is either a scalar (mass, volume) or a per-nuclide quantity (activity, heat, etc.) that sums across nuclides by default.')}</label>
+        <select onchange="updateCriterion('${oid}',${ci},'variable',this.value)">
+          ${variableOptionsHtml(ORDER_CRITERIA_VARIABLE_DEFS, c.variable)}
+        </select>
+      </div>
+      <div class="field"><label>Must be ${help('at most = the value must not exceed the threshold (a ceiling). at least = the value must reach the threshold (a floor).')}</label>
+        <select onchange="updateCriterion('${oid}',${ci},'principle',this.value)">
+          <option value="min" ${c.principle==='min'?'selected':''}>at most</option>
+          <option value="max" ${c.principle==='max'?'selected':''}>at least</option>
+        </select>
+      </div>
+      <div class="field"><label>${mix?'Cumulative limit (usually 1)':'Threshold'}</label>${distField(c.value, `updateCriterionSilent('${oid}',${ci},'value',this.value)`, null, {id:`dist-critval-${oid}-${ci}`})}</div>
+    </div>
+    ${c.region==='node' ? `
+    <div class="field-grid" style="margin-top:8px;">
+      <div class="field span2"><label>Which node ${help('Leave blank to check whichever candidate node the order is currently considering, or pick a specific node to always check that one.')}</label>
+        <select onchange="updateCriterion('${oid}',${ci},'targetNode',this.value)"><option value="">(candidate node)</option>${nodeIdOptionList(c.targetNode)}</select>
+      </div>
+    </div>` : ''}
+    ${nucSpecific ? (mix ? mixCriteriaSubblockHtml(oid, ci, c) : nuclideFilterSubblockHtml(oid, ci, c)) : ''}
+  `;
+}
+function actCriterionBodyHtml(aid, c, ci){
+  return `
+    <div class="field-grid">
+      <div class="field"><label>Applies to</label>
+        <select onchange="updateActCriterion('${aid}',${ci},'region',this.value)">
+          <option value="package" ${c.region==='package'?'selected':''}>a package</option>
+          <option value="node" ${c.region==='node'?'selected':''}>a whole node</option>
+        </select>
+      </div>
+      <div class="field"><label>What to measure</label>
+        <select onchange="updateActCriterion('${aid}',${ci},'variable',this.value)">
+          ${variableOptionsHtml(CRITERIA_VARIABLE_DEFS, c.variable)}
+        </select>
+      </div>
+      <div class="field"><label>Must be</label>
+        <select onchange="updateActCriterion('${aid}',${ci},'principle',this.value)">
+          <option value="min" ${c.principle==='min'?'selected':''}>at most</option>
+          <option value="max" ${c.principle==='max'?'selected':''}>at least</option>
+        </select>
+      </div>
+      <div class="field"><label>Threshold</label>${distField(c.value, `updateActCriterionSilent('${aid}',${ci},'value',this.value)`, null, {id:`dist-actcritval-${aid}-${ci}`})}</div>
+    </div>`;
+}
+
 function addCriterion(oid){
   const o = orders.find(o=>o.id===oid);
   o.criteria.push({region:'package',variable:'mass',principle:'min',value:'',limitsFile:'',advanced:false,filters:[]});
   // keep any existing alternative-combination rows the same length as the criteria list
   (o.conditions||[]).forEach(cond=>cond.push(true));
+  // auto-expand the newly added criterion so its fields are immediately visible
+  expandedCriteria.add(criterionKey('ord', oid, o.criteria.length-1));
   renderOrders();
   if(typeof renderNetworkInspector==='function') renderNetworkInspector();
 }
 function updateCriterion(oid,i,key,val){
   const c = orders.find(o=>o.id===oid).criteria[i];
   c[key]=val;
-  if(key==='variable' && isMixVariable(val)) c.advanced = true; // mix criteria always need their nuclide list emitted
   renderOrders();
   if(typeof renderNetworkInspector==='function') renderNetworkInspector();
 }
@@ -2555,6 +2773,16 @@ function removeCriterion(oid,i){
   (o.conditions||[]).forEach(cond=>cond.splice(i,1));
   // a combination needs at least 2 criteria to mean anything
   if(o.criteria.length<2) o.conditions = [];
+  // shift expanded-state keys down so an expanded criterion below the removed one stays expanded
+  const nextExpanded = new Set();
+  expandedCriteria.forEach(k=>{
+    const parts = k.split(':');
+    if(parts[0]!=='ord' || parts[1]!==oid) { nextExpanded.add(k); return; }
+    const idx = parseInt(parts[2],10);
+    if(idx < i) nextExpanded.add(k);
+    else if(idx > i) nextExpanded.add(`ord:${oid}:${idx-1}`);
+  });
+  expandedCriteria = nextExpanded;
   renderOrders();
   if(typeof renderNetworkInspector==='function') renderNetworkInspector();
 }
@@ -2575,35 +2803,43 @@ function addFilterRow(oid,ci,kind){
 function updateFilterRow(oid,ci,fi,key,val){ orders.find(o=>o.id===oid).criteria[ci].filters[fi][key]=val; renderOrders(); if(typeof renderNetworkInspector==='function') renderNetworkInspector(); }
 function removeFilterRow(oid,ci,fi){ orders.find(o=>o.id===oid).criteria[ci].filters.splice(fi,1); renderOrders(); if(typeof renderNetworkInspector==='function') renderNetworkInspector(); }
 
-function renderFilterRow(o,ci,c,f,fi){
+// Each filter row is now prefixed with a small type badge ("nuclide" / "decay type" /
+// "half-life") so it's obvious at a glance what kind of restriction each row is, and the
+// half-life row reads more like a sentence: "half-life under 30 y".
+function renderFilterRow(oid,ci,c,f,fi){
+  const mix = isMixVariable(c.variable);
+  let kindLabel = '';
   let inner = '';
   if(f.kind==='nuclide'){
+    kindLabel = 'nuclide';
     inner = `
-      <div class="field"><label>Nuclide ${help('Restrict this criterion to just this one nuclide instead of the whole package/node.')}</label>
+      <div class="field" style="flex:2 1 200px;"><label>Nuclide name ${help('Restrict this criterion to just this one nuclide instead of the whole package/node.')}</label>
         <input type="text" list="nuclide-suggestions" placeholder="e.g. Co60 or Am242_m1" value="${esc(f.nuclideName)}"
-          oninput="updateFilterRowSilent('${o.id}',${ci},${fi},'nuclideName',this.value)"
-          onblur="normalizeFieldOnBlur(this, v=>updateFilterRow('${o.id}',${ci},${fi},'nuclideName',v))">
+          oninput="updateFilterRowSilent('${oid}',${ci},${fi},'nuclideName',this.value)"
+          onblur="normalizeFieldOnBlur(this, v=>updateFilterRow('${oid}',${ci},${fi},'nuclideName',v))">
       </div>`;
   } else if(f.kind==='decaytype'){
+    kindLabel = 'decay type';
     inner = `
-      <div class="field"><label>Decay type ${help('Restrict this criterion to nuclides that decay by this mode, e.g. only alpha emitters.')}</label>
-        <select onchange="updateFilterRow('${o.id}',${ci},${fi},'decayType',this.value)">
+      <div class="field"><label>Decays by ${help('Restrict this criterion to nuclides that decay by this mode, e.g. only alpha emitters.')}</label>
+        <select onchange="updateFilterRow('${oid}',${ci},${fi},'decayType',this.value)">
           ${DECAY_TYPES.map(d=>`<option value="${d}" ${f.decayType===d?'selected':''}>${d}${d==='alpha'?' (alpha emitters)':''}</option>`).join('')}
           <option value="custom" ${f.decayType==='custom'?'selected':''}>custom&hellip;</option>
         </select>
       </div>
-      ${f.decayType==='custom' ? `<div class="field"><label>Custom type string</label><input type="text" value="${esc(f.decayTypeCustom)}" oninput="updateFilterRowSilent('${o.id}',${ci},${fi},'decayTypeCustom',this.value)"></div>` : ''}`;
+      ${f.decayType==='custom' ? `<div class="field"><label>Custom type string</label><input type="text" value="${esc(f.decayTypeCustom)}" oninput="updateFilterRowSilent('${oid}',${ci},${fi},'decayTypeCustom',this.value)"></div>` : ''}`;
   } else if(f.kind==='halflife'){
+    kindLabel = 'half-life';
     inner = `
-      <div class="field narrow"><label>Half-life is ${help('Restrict this criterion to nuclides whose half-life is under or over the amount below.')}</label>
-        <select onchange="updateFilterRow('${o.id}',${ci},${fi},'hlCompare',this.value)">
+      <div class="field narrow"><label>Half-life ${help('Restrict this criterion to nuclides whose half-life is under or over the amount below.')}</label>
+        <select onchange="updateFilterRow('${oid}',${ci},${fi},'hlCompare',this.value)">
           <option value="-" ${f.hlCompare==='-'?'selected':''}>under</option>
           <option value="+" ${f.hlCompare==='+'?'selected':''}>over</option>
         </select>
       </div>
-      <div class="field narrow"><label>Amount</label>${distField(f.hlMagnitude, `updateFilterRowSilent('${o.id}',${ci},${fi},'hlMagnitude',this.value)`, null, {id:`dist-hlmag-${o.id}-${ci}-${fi}`})}</div>
+      <div class="field narrow"><label>Amount</label>${distField(f.hlMagnitude, `updateFilterRowSilent('${oid}',${ci},${fi},'hlMagnitude',this.value)`, null, {id:`dist-hlmag-${oid}-${ci}-${fi}`})}</div>
       <div class="field narrow"><label>Unit</label>
-        <select onchange="updateFilterRow('${o.id}',${ci},${fi},'hlUnit',this.value)">
+        <select onchange="updateFilterRow('${oid}',${ci},${fi},'hlUnit',this.value)">
           <option value="y" ${f.hlUnit==='y'?'selected':''}>years</option>
           <option value="m" ${f.hlUnit==='m'?'selected':''}>months</option>
           <option value="d" ${f.hlUnit==='d'?'selected':''}>days</option>
@@ -2613,9 +2849,10 @@ function renderFilterRow(o,ci,c,f,fi){
   }
   return `
     <div class="filter-row">
+      <span class="filter-kind-badge">${kindLabel}</span>
       ${inner}
-      ${isMixVariable(c.variable) ? '' : `<div class="field narrow"><label>Threshold override ${help('Optional — use a different threshold for just this filter row instead of the criterion\'s shared threshold above.')}</label>${distField(f.tokenValue, `updateFilterRowSilent('${o.id}',${ci},${fi},'tokenValue',this.value)`, null, {placeholder:'uses shared', id:`dist-tokenval-${o.id}-${ci}-${fi}`})}</div>`}
-      <button class="rm" onclick="removeFilterRow('${o.id}',${ci},${fi})">&times;</button>
+      ${mix ? '' : `<div class="field narrow"><label>Threshold override ${help('Optional — use a different threshold for just this filter row instead of the criterion\'s shared threshold above.')}</label>${distField(f.tokenValue, `updateFilterRowSilent('${oid}',${ci},${fi},'tokenValue',this.value)`, null, {placeholder:'uses shared', id:`dist-tokenval-${oid}-${ci}-${fi}`})}</div>`}
+      <button class="rm" onclick="removeFilterRow('${oid}',${ci},${fi})">&times;</button>
     </div>`;
 }
 // silent update = don't re-render on every keystroke (keeps focus in text/number inputs), just rebuild XML
@@ -2682,74 +2919,12 @@ function orderCardHtml(o){
 
       <div class="subblock">
         <div class="subblock-title">Criteria ${help('A package (or node) must satisfy every criterion below to be selected by this order, unless you add alternative combinations further down.')}</div>
-        <div class="rows">
-          ${o.criteria.map((c,ci)=>`
-            <div class="entry-card" style="background:var(--panel);">
-              <button class="remove" onclick="removeCriterion('${o.id}',${ci})">&times;</button>
-              <div class="criterion-summary">${esc(criterionSummary(c, ORDER_CRITERIA_VARIABLE_DEFS, nodes))}</div>
-              <div class="field-grid">
-                <div class="field"><label>Region ${help('Whether the threshold applies to a single package, or to the node as a whole.')}</label>
-                  <select onchange="updateCriterion('${o.id}',${ci},'region',this.value)">
-                    <option value="package" ${c.region==='package'?'selected':''}>package</option>
-                    <option value="node" ${c.region==='node'?'selected':''}>node</option>
-                  </select>
-                </div>
-                <div class="field"><label>Variable</label>
-                  <select onchange="updateCriterion('${o.id}',${ci},'variable',this.value)">
-                    ${variableOptionsHtml(ORDER_CRITERIA_VARIABLE_DEFS, c.variable)}
-                  </select>
-                </div>
-                <div class="field"><label>Principle ${help('max = the value must be at least the threshold (the threshold is a floor). min = the value must be at most the threshold (the threshold is a ceiling).')}</label>
-                  <select onchange="updateCriterion('${o.id}',${ci},'principle',this.value)">
-                    <option value="min" ${c.principle==='min'?'selected':''}>min</option>
-                    <option value="max" ${c.principle==='max'?'selected':''}>max</option>
-                  </select>
-                </div>
-                <div class="field"><label>${isMixVariable(c.variable)?'Cumulative limit (usually 1)':'Shared threshold'}</label>${distField(c.value, `updateCriterionSilent('${o.id}',${ci},'value',this.value)`, null, {id:`dist-critval-${o.id}-${ci}`})}</div>
-              </div>
-              ${c.region==='node' ? `
-              <div class="field-grid">
-                <div class="field"><label>Node ${help('Which node this criterion actually checks. Leave blank to check whichever candidate node the order is currently considering (the previous, still-default behavior) — or pick a specific node to always check that one, regardless of which node the order ends up working with.')}</label>
-                  <select onchange="updateCriterion('${o.id}',${ci},'targetNode',this.value)"><option value="">(candidate node)</option>${nodeIdOptionList(c.targetNode)}</select>
-                </div>
-              </div>` : ''}
-
-              ${isMixVariable(c.variable) ? `
-                <div class="subblock">
-                  <p class="empty-hint" style="margin-top:0;">Sums <code>value / limit</code> across the nuclides below and checks the total against the cumulative limit above &mdash; e.g. a typical "must stay under 1" mixing rule.</p>
-                  <div class="field span2"><label>Limits file (optional JSON path on the machine running the simulation &mdash; nuclide&rarr;limit map; omitted nuclides default to a limit of 1) ${help('A JSON file of {"nuclide": limit} pairs, read by the simulator at run time — this tool just stores the path, it does not create the file for you.')}</label>
-                    <input type="text" placeholder="e.g. limits/site_limits.json" value="${esc(c.limitsFile||'')}" oninput="updateCriterionSilent('${o.id}',${ci},'limitsFile',this.value)">
-                  </div>
-                  ${c.filters.map((f,fi)=> renderFilterRow(o,ci,c,f,fi)).join('') || '<p class="empty-hint">No nuclides yet &mdash; add at least one below.</p>'}
-                  <div class="filter-add-row">
-                    <button class="ghost small" onclick="addFilterRow('${o.id}',${ci},'nuclide')">+ specific nuclide</button>
-                    <button class="ghost small" onclick="addFilterRow('${o.id}',${ci},'decaytype')">+ decay type (e.g. alpha)</button>
-                    <button class="ghost small" onclick="addFilterRow('${o.id}',${ci},'halflife')">+ half-life band</button>
-                  </div>
-                </div>` : `
-              <label class="advanced-toggle">
-                <input type="checkbox" ${c.advanced?'checked':''} onchange="updateCriterion('${o.id}',${ci},'advanced',this.checked)">
-                Show advanced filters (restrict to specific nuclides, decay types, or half-life bands)
-              </label>
-
-              ${c.advanced ? `
-                <div class="subblock">
-                  ${c.filters.map((f,fi)=> renderFilterRow(o,ci,c,f,fi)).join('') || '<p class="empty-hint">No filters yet &mdash; this criterion currently applies to the whole package/node.</p>'}
-                  <div class="filter-add-row">
-                    <button class="ghost small" onclick="addFilterRow('${o.id}',${ci},'nuclide')">+ specific nuclide</button>
-                    <button class="ghost small" onclick="addFilterRow('${o.id}',${ci},'decaytype')">+ decay type (e.g. alpha)</button>
-                    <button class="ghost small" onclick="addFilterRow('${o.id}',${ci},'halflife')">+ half-life band</button>
-                  </div>
-                  <p class="empty-hint">Threshold override is optional per row &mdash; leave blank to reuse the shared threshold above.</p>
-                </div>` : ''}`}
-            </div>`).join('')}
-        </div>
-        <button class="ghost small" style="margin-top:8px;" onclick="addCriterion('${o.id}')">+ criterion</button>
+        ${criteriaListHtml('ord', o.id, o.criteria, ORDER_CRITERIA_VARIABLE_DEFS, nodes)}
       </div>
 
       ${o.criteria.length>1 ? `
       <div class="subblock">
-        <div class="subblock-title">Alternative combinations (optional)</div>
+        <div class="subblock-title">Alternative ways to qualify (optional) ${help('By default every criterion above must pass. Add an alternative below to also accept packages that satisfy a different set of conditions instead.')}</div>
         ${criteriaCombinationBuilderHtml('ord', o.id, o.criteria, o.conditions, ORDER_CRITERIA_VARIABLE_DEFS, nodes)}
       </div>` : ''}
     </div>`;
@@ -2810,6 +2985,7 @@ function addActCriterion(aid){
   const a = actions.find(x=>x.id===aid);
   a.criteria.push({region:'package',variable:'mass',principle:'min',value:''});
   (a.conditions||[]).forEach(cond=>cond.push(true));
+  expandedCriteria.add(criterionKey('act', aid, a.criteria.length-1));
   renderActions();
 }
 function updateActCriterion(aid,i,key,val){ actions.find(x=>x.id===aid).criteria[i][key]=val; renderActions(); }
@@ -2819,6 +2995,15 @@ function removeActCriterion(aid,i){
   a.criteria.splice(i,1);
   (a.conditions||[]).forEach(cond=>cond.splice(i,1));
   if(a.criteria.length<2) a.conditions = [];
+  const nextExpanded = new Set();
+  expandedCriteria.forEach(k=>{
+    const parts = k.split(':');
+    if(parts[0]!=='act' || parts[1]!==aid) { nextExpanded.add(k); return; }
+    const idx = parseInt(parts[2],10);
+    if(idx < i) nextExpanded.add(k);
+    else if(idx > i) nextExpanded.add(`act:${aid}:${idx-1}`);
+  });
+  expandedCriteria = nextExpanded;
   renderActions();
 }
 function addActCondition(aid){
@@ -3106,38 +3291,10 @@ function actionCardHtml(a, i, loc){
         <div class="subblock">
           <div class="subblock-title">Suitability criteria (optional)</div>
           <p class="empty-hint" style="margin-top:0;">Checked against each group after sorting. Per-nuclide advanced filters aren't available here &mdash; export and hand-edit the XML if you need those.</p>
-          <div class="rows">
-            ${(a.criteria||[]).map((c,ci)=>`
-              <div class="entry-card" style="background:var(--panel);">
-                <button class="remove" onclick="removeActCriterion('${a.id}',${ci})">&times;</button>
-                <div class="criterion-summary">${esc(criterionSummary(c, CRITERIA_VARIABLE_DEFS, nodes))}</div>
-                <div class="field-grid">
-                  <div class="field"><label>Region</label>
-                    <select onchange="updateActCriterion('${a.id}',${ci},'region',this.value)">
-                      <option value="package" ${c.region==='package'?'selected':''}>package</option>
-                      <option value="node" ${c.region==='node'?'selected':''}>node</option>
-                    </select>
-                  </div>
-                  <div class="field"><label>Variable</label>
-                    <select onchange="updateActCriterion('${a.id}',${ci},'variable',this.value)">
-                      ${variableOptionsHtml(CRITERIA_VARIABLE_DEFS, c.variable)}
-                    </select>
-                  </div>
-                  <div class="field"><label>Principle ${help('max = the value must be at least the threshold (the threshold is a floor). min = the value must be at most the threshold (the threshold is a ceiling).')}</label>
-                    <select onchange="updateActCriterion('${a.id}',${ci},'principle',this.value)">
-                      <option value="min" ${c.principle==='min'?'selected':''}>min</option>
-                      <option value="max" ${c.principle==='max'?'selected':''}>max</option>
-                    </select>
-                  </div>
-                  <div class="field"><label>Threshold</label>${distField(c.value, `updateActCriterionSilent('${a.id}',${ci},'value',this.value)`, null, {id:`dist-actcritval-${a.id}-${ci}`})}</div>
-                </div>
-              </div>`).join('') || '<p class="empty-hint">No criteria &mdash; every group is accepted.</p>'}
-          </div>
-          <button class="ghost small" style="margin-top:8px;" onclick="addActCriterion('${a.id}')">+ criterion</button>
-
+          ${criteriaListHtml('act', a.id, a.criteria||[], CRITERIA_VARIABLE_DEFS, nodes)}
           ${(a.criteria||[]).length>1 ? `
           <div class="subblock">
-            <div class="subblock-title">Alternative combinations (optional)</div>
+            <div class="subblock-title">Alternative ways to qualify (optional) ${help('By default every criterion above must pass. Add an alternative below to also accept groups that satisfy a different set of conditions instead.')}</div>
             ${criteriaCombinationBuilderHtml('act', a.id, a.criteria, a.conditions, CRITERIA_VARIABLE_DEFS, nodes)}
           </div>` : ''}
         </div>`;
@@ -3309,7 +3466,9 @@ function buildXML(){
         if(c.value!=='') cAttrs.push(`criteria="${xmlEscAttr(c.value)}"`);
         const mix = isMixVariable(c.variable);
         if(mix && c.limitsFile) cAttrs.push(`limits="${xmlEscAttr(c.limitsFile)}"`);
-        const activeFilters = ((c.advanced || mix) ? c.filters : []).filter(f=> filterToken(f) !== '');
+        // Filters are emitted for any nuclide-specific variable -- mass/volume can't have
+        // meaningful nuclide filters, so any leftovers there are dropped rather than emitted.
+        const activeFilters = (isNuclideSpecificVariable(c.variable) ? (c.filters||[]) : []).filter(f=> filterToken(f) !== '');
         if(activeFilters.length){
           lines.push(`      <criteria ${cAttrs.join(' ')}>`);
           activeFilters.forEach(f=>{
@@ -4606,14 +4765,18 @@ function chipVariableLabel(value){
   const varDef = ORDER_CRITERIA_VARIABLE_DEFS.find(v=>v.value===value);
   return (varDef ? varDef.label : value).replace(/\s*\([^)]*\)\s*$/, '');
 }
+// Network chip text for each criterion — includes the filter summary so a criterion with
+// e.g. a "half-life > 30y" filter reads correctly on the diagram instead of just showing
+// the base threshold as if it applied to every nuclide.
 function orderCriteriaChipTexts(o){
   if(!o.criteria || !o.criteria.length) return ['no criteria'];
   const symbol = p => p==='min' ? '\u2265' : p==='max' ? '\u2264' : p;
   const chips = o.criteria.map(c=>{
     const varLabel = chipVariableLabel(c.variable);
     const val = (c.value!==''&&c.value!==undefined) ? compactValueDisplay(c.value) : '?';
-    const nucCount = isMixVariable(c.variable) ? ` (${(c.filters||[]).length} nuc)` : '';
-    return `${varLabel} ${symbol(c.principle)} ${val}${nucCount}`;
+    const filterSumm = criterionFilterSummary(c);
+    const filterSuffix = filterSumm ? ` [${filterSumm}]` : '';
+    return `${varLabel} ${symbol(c.principle)} ${val}${filterSuffix}`;
   });
   if(o.conditions && o.conditions.length && o.criteria.length>1){
     chips.push(`OR \u00d7${o.conditions.length}`);
