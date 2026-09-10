@@ -168,6 +168,21 @@
   }
   .action-timeline-content{flex:1;padding-bottom:2px;min-width:0;}
   .action-timeline-content .entry-card{margin-bottom:0;margin-top:8px;}
+  .criterion-summary{font-family:var(--mono);font-size:12.5px;font-weight:600;color:var(--amber);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border-soft);}
+  .combo-builder{display:flex;flex-direction:column;gap:0;}
+  .combo-row{position:relative;background:var(--panel);border:1px solid var(--border-soft);border-radius:var(--radius);padding:12px 36px 12px 14px;}
+  .combo-row-default{background:var(--panel-alt);border-style:dashed;}
+  .combo-row-label{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-faint);margin-bottom:8px;}
+  .combo-or{text-align:center;font-family:var(--mono);font-size:10.5px;font-weight:600;color:var(--text-faint);margin:6px 0;letter-spacing:.05em;}
+  .combo-chips{display:flex;flex-wrap:wrap;align-items:center;gap:6px;}
+  .combo-and{font-family:var(--mono);font-size:10px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.03em;}
+  .combo-chip{display:flex;flex-direction:column;align-items:flex-start;gap:1px;border:1px solid var(--border);border-radius:var(--radius);padding:5px 9px;font-family:var(--mono);background:var(--panel);cursor:pointer;line-height:1.3;}
+  .combo-chip-text{font-size:11px;color:var(--text);}
+  .combo-chip-state{font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;font-weight:600;}
+  .combo-chip.chip-pass{border-color:var(--ok);} .combo-chip.chip-pass .combo-chip-state{color:var(--ok);}
+  .combo-chip.chip-fail{border-color:var(--danger);} .combo-chip.chip-fail .combo-chip-state{color:var(--danger);}
+  .combo-chip.chip-any{border-color:var(--text-faint);border-style:dashed;} .combo-chip.chip-any .combo-chip-state{color:var(--text-faint);}
+  .combo-chip:not([style*="cursor:default"]):hover{border-width:1px;box-shadow:0 0 0 1px currentColor;}
   .action-drag-handle{
     cursor:grab;color:var(--text-faint);font-size:13px;line-height:1;margin-bottom:3px;
     touch-action:none;user-select:none;letter-spacing:-1px;
@@ -1685,7 +1700,74 @@ const ORDER_MIX_VARIABLE_DEFS = [
   {value:'activity_concentration_mix', label:'Activity concentration mix (cumulative ratio)'},
 ];
 const ORDER_CRITERIA_VARIABLE_DEFS = CRITERIA_VARIABLE_DEFS.concat(ORDER_MIX_VARIABLE_DEFS);
+function criterionSummary(c, defs, nodes){
+  defs = defs || CRITERIA_VARIABLE_DEFS;
+  const varLabel = criteriaVariableLabel(defs, c.variable);
+  const cmp = c.principle === 'max' ? '\u2265' : '\u2264'; // max = at least (floor), min = at most (ceiling)
+  const val = (c.value !== '' && c.value !== undefined && c.value !== null) ? c.value : '?';
+  let text = `${c.region} ${varLabel} ${cmp} ${val}`;
+  if(c.region === 'node' && c.targetNode && nodes){
+    const n = nodes.find(x=>x.id===c.targetNode);
+    if(n) text += ` (at ${n.label})`;
+  }
+  return text;
+}
+// A condition row's per-criterion state is true (must pass) / false (must fail) / null
+// (doesn't matter -- not expressible in the underlying True/False XML schema on its own,
+// so it's expanded into every True/False combination for that position at build time).
+function cycleConditionState(state){
+  if(state === true) return false;
+  if(state === false) return null;
+  return true;
+}
+function conditionChipClass(state){ return state===true ? 'chip-pass' : state===false ? 'chip-fail' : 'chip-any'; }
+function conditionChipLabel(state){ return state===true ? 'must pass' : state===false ? 'must fail' : "doesn't matter"; }
+// Shared by both the order-criteria and organize_packages-criteria sections, which use the
+// identical underlying model (a list of criteria, all required by default, plus optional
+// alternative combinations).
+function criteriaCombinationBuilderHtml(kind, id, criteria, conditions, defs, nodes){
+  const toggleFn = kind==='ord' ? 'toggleCondition' : 'toggleActCondition';
+  const addFn = kind==='ord' ? 'addCondition' : 'addActCondition';
+  const removeFn = kind==='ord' ? 'removeCondition' : 'removeActCondition';
+
+  const defaultChips = criteria.map(c=>`<span class="combo-chip chip-pass" style="cursor:default;"><span class="combo-chip-text">${esc(criterionSummary(c, defs, nodes))}</span><span class="combo-chip-state">must pass</span></span>`).join('<span class="combo-and">AND</span>');
+
+  const altRowsHtml = (conditions||[]).map((cond,condi)=>`
+    <div class="combo-or">OR</div>
+    <div class="combo-row">
+      <button class="remove" onclick="${removeFn}('${id}',${condi})">&times;</button>
+      <div class="combo-row-label">Alternative ${condi+1}</div>
+      <div class="combo-chips">
+        ${criteria.map((c,ci)=>{
+          const state = cond[ci]===undefined ? true : cond[ci];
+          return `<button type="button" class="combo-chip ${conditionChipClass(state)}" onclick="${toggleFn}('${id}',${condi},${ci})">
+            <span class="combo-chip-text">${esc(criterionSummary(c, defs, nodes))}</span>
+            <span class="combo-chip-state">${conditionChipLabel(state)}</span>
+          </button>`;
+        }).join('<span class="combo-and">AND</span>')}
+      </div>
+    </div>`).join('');
+
+  return `
+    <div class="combo-builder">
+      <div class="combo-row combo-row-default">
+        <div class="combo-row-label">Required by default</div>
+        <div class="combo-chips">${defaultChips}</div>
+      </div>
+      ${altRowsHtml}
+    </div>
+    <p class="empty-hint" style="margin:10px 0 0 0;">Click a chip in an alternative to cycle it between <strong>must pass</strong>, <strong>must fail</strong>, and <strong>doesn't matter</strong>. A package qualifies if it meets the default requirement above, or any one alternative in full.</p>
+    <button class="ghost small" style="margin-top:8px;" onclick="${addFn}('${id}')">+ add an alternative way to qualify</button>`;
+}
 function isMixVariable(v){ return v==='activity_mix' || v==='activity_concentration_mix'; }
+function criteriaVariableLabel(defs, value){
+  const found = defs.find(v=>v.value===value);
+  return found ? found.label : (value||'value');
+}
+// One-line plain-language description of a single criterion, e.g. "package mass \u2265 500"
+// or "node volume \u2264 10 (at Storage)". Used as the always-visible card header (so a
+// criterion's meaning is clear without opening it) and as the chip label in the
+// combination builder, so alternatives read like an actual sentence instead of "Criterion 2".
 function variableOptionsHtml(defs, selected){
   return defs.map(v=>`<option value="${v.value}" ${selected===v.value?'selected':''}>${esc(v.label)}</option>`).join('');
 }
@@ -2484,7 +2566,7 @@ function addCondition(oid){
   if(typeof renderNetworkInspector==='function') renderNetworkInspector();
 }
 function removeCondition(oid,ci){ orders.find(o=>o.id===oid).conditions.splice(ci,1); renderOrders(); if(typeof renderNetworkInspector==='function') renderNetworkInspector(); }
-function toggleCondition(oid,condi,ci,val){ orders.find(o=>o.id===oid).conditions[condi][ci]=val; renderOrders(); if(typeof renderNetworkInspector==='function') renderNetworkInspector(); }
+function toggleCondition(oid,condi,ci){ const o=orders.find(o=>o.id===oid); const cur=o.conditions[condi][ci]===undefined?true:o.conditions[condi][ci]; o.conditions[condi][ci]=cycleConditionState(cur); renderOrders(); if(typeof renderNetworkInspector==='function') renderNetworkInspector(); }
 function addFilterRow(oid,ci,kind){
   orders.find(o=>o.id===oid).criteria[ci].filters.push({id:nid(), kind, nuclideName:'', decayType:'alpha', decayTypeCustom:'', hlCompare:'-', hlMagnitude:'', hlUnit:'y', tokenValue:''});
   renderOrders();
@@ -2604,6 +2686,7 @@ function orderCardHtml(o){
           ${o.criteria.map((c,ci)=>`
             <div class="entry-card" style="background:var(--panel);">
               <button class="remove" onclick="removeCriterion('${o.id}',${ci})">&times;</button>
+              <div class="criterion-summary">${esc(criterionSummary(c, ORDER_CRITERIA_VARIABLE_DEFS, nodes))}</div>
               <div class="field-grid">
                 <div class="field"><label>Region ${help('Whether the threshold applies to a single package, or to the node as a whole.')}</label>
                   <select onchange="updateCriterion('${o.id}',${ci},'region',this.value)">
@@ -2616,7 +2699,7 @@ function orderCardHtml(o){
                     ${variableOptionsHtml(ORDER_CRITERIA_VARIABLE_DEFS, c.variable)}
                   </select>
                 </div>
-                <div class="field"><label>Principle ${help('min = the value must be at least the threshold, max = at most the threshold.')}</label>
+                <div class="field"><label>Principle ${help('max = the value must be at least the threshold (the threshold is a floor). min = the value must be at most the threshold (the threshold is a ceiling).')}</label>
                   <select onchange="updateCriterion('${o.id}',${ci},'principle',this.value)">
                     <option value="min" ${c.principle==='min'?'selected':''}>min</option>
                     <option value="max" ${c.principle==='max'?'selected':''}>max</option>
@@ -2667,21 +2750,7 @@ function orderCardHtml(o){
       ${o.criteria.length>1 ? `
       <div class="subblock">
         <div class="subblock-title">Alternative combinations (optional)</div>
-        <p class="empty-hint" style="margin-top:0;">By default a package must satisfy <strong>all</strong> criteria above. Add a combination here to also accept packages that only satisfy some of them &mdash; e.g. criterion 1 &amp; 2, OR criterion 1 &amp; 3. Untick a criterion in a row to make that row ignore it.</p>
-        <div class="rows">
-          ${(o.conditions||[]).map((cond,condi)=>`
-            <div class="entry-card" style="background:var(--panel);padding:12px 14px;">
-              <button class="remove" onclick="removeCondition('${o.id}',${condi})">&times;</button>
-              <div class="condition-row">
-                ${o.criteria.map((c,ci)=>`
-                  <label class="cond-check ${cond[ci]?'is-true':'is-false'}">
-                    <input type="checkbox" ${cond[ci]?'checked':''} onchange="toggleCondition('${o.id}',${condi},${ci},this.checked)">
-                    Criterion ${ci+1} (${c.variable}, ${c.region})
-                  </label>`).join('')}
-              </div>
-            </div>`).join('') || '<p class="empty-hint">No alternative combinations yet &mdash; only packages meeting every criterion above are accepted.</p>'}
-        </div>
-        <button class="ghost small" style="margin-top:8px;" onclick="addCondition('${o.id}')">+ combination</button>
+        ${criteriaCombinationBuilderHtml('ord', o.id, o.criteria, o.conditions, ORDER_CRITERIA_VARIABLE_DEFS, nodes)}
       </div>` : ''}
     </div>`;
 }
@@ -2759,7 +2828,7 @@ function addActCondition(aid){
   renderActions();
 }
 function removeActCondition(aid,ci){ actions.find(x=>x.id===aid).conditions.splice(ci,1); renderActions(); }
-function toggleActCondition(aid,condi,ci,val){ actions.find(x=>x.id===aid).conditions[condi][ci]=val; renderActions(); }
+function toggleActCondition(aid,condi,ci){ const a=actions.find(x=>x.id===aid); const cur=a.conditions[condi][ci]===undefined?true:a.conditions[condi][ci]; a.conditions[condi][ci]=cycleConditionState(cur); renderActions(); }
 function regenerateConfigGrid(aid){
   const a = actions.find(x=>x.id===aid);
   const rows = parseInt(a.sizeRows)||0, cols = parseInt(a.sizeCols)||0;
@@ -2908,10 +2977,10 @@ function actionCardHtml(a, i, loc){
         <select onchange="updateAction('${a.id}','sourceLabel',this.value)"><option value=""></option>${optionList(sources.map(s=>s.label).filter(Boolean), a.sourceLabel)}</select>
       </div>`;
     } else if(a.type==='save_state'){
-      body = `<div class="field"><label>Filename ${help('Writes the full simulation state to this XML file — every node, package, and nuclide inventory at this point in time.')}</label><input type="text" value="${esc(a.filename)}" oninput="updateAction('${a.id}','filename',this.value)"></div>`;
+      body = `<div class="field"><label>Filename ${help('Writes the full simulation state to this XML file — every node, package, and nuclide inventory at this point in time.')}</label><input type="text" value="${esc(a.filename)}" oninput="updateActionSilent('${a.id}','filename',this.value)" onblur="updateAction('${a.id}','filename',this.value)"></div>`;
     } else if(a.type==='save_results'){
       body = `
-        <div class="field"><label>Filename ${help('Writes a JSON file with a time series of each selected variable for each selected node/package. Use a .json extension — Monte Carlo runs rely on it to find and aggregate each trial\'s output.')}</label><input type="text" value="${esc(a.filename)}" oninput="updateAction('${a.id}','filename',this.value)"></div>
+        <div class="field"><label>Filename ${help('Writes a JSON file with a time series of each selected variable for each selected node/package. Use a .json extension — Monte Carlo runs rely on it to find and aggregate each trial\'s output.')}</label><input type="text" value="${esc(a.filename)}" oninput="updateActionSilent('${a.id}','filename',this.value)" onblur="updateAction('${a.id}','filename',this.value)"></div>
         <div class="field checkbox"><input type="checkbox" id="na-${loc}-${a.id}" ${a.nodesAll?'checked':''} onchange="updateAction('${a.id}','nodesAll',this.checked)"><label for="na-${loc}-${a.id}">all nodes</label></div>
         <div class="field checkbox"><input type="checkbox" id="pa-${loc}-${a.id}" ${a.packagesAll?'checked':''} onchange="updateAction('${a.id}','packagesAll',this.checked)"><label for="pa-${loc}-${a.id}">all packages</label></div>
         <div class="field span2"><label>Times (blank = full history) ${help('Optional list of specific times to report, instead of every saved timestep.')}</label><input type="text" value="${esc(a.times)}" oninput="updateAction('${a.id}','times',this.value)"></div>
@@ -2973,7 +3042,7 @@ function actionCardHtml(a, i, loc){
         </div>`;
     } else if(a.type==='organize_node'){
       body = `
-        <div class="field"><label>Filename ${help('Where the physical storage layout gets written (an image or animated gif showing the packing).')}</label><input type="text" value="${esc(a.filename)}" oninput="updateAction('${a.id}','filename',this.value)"></div>
+        <div class="field"><label>Filename ${help('Where the physical storage layout gets written (an image or animated gif showing the packing).')}</label><input type="text" value="${esc(a.filename)}" oninput="updateActionSilent('${a.id}','filename',this.value)" onblur="updateAction('${a.id}','filename',this.value)"></div>
         <div class="field"><label>Node ${help('Which node contains the packages to arrange in physical storage.')}</label><select onchange="updateAction('${a.id}','node',this.value)"><option value=""></option>${optionList(nodeLabels(), a.node)}</select></div>
         <div class="field"><label>Mode ${help('closure packs outward from the center; ordered fills the grid cell by cell in sequence.')}</label>
           <select onchange="updateAction('${a.id}','mode',this.value)">
@@ -3014,7 +3083,7 @@ function actionCardHtml(a, i, loc){
         </div>`;
     } else if(a.type==='organize_packages'){
       body = `
-        <div class="field"><label>Filename ${help('Where the resulting grouped-package summary spreadsheet gets written.')}</label><input type="text" value="${esc(a.filename)}" oninput="updateAction('${a.id}','filename',this.value)"></div>
+        <div class="field"><label>Filename ${help('Where the resulting grouped-package summary spreadsheet gets written.')}</label><input type="text" value="${esc(a.filename)}" oninput="updateActionSilent('${a.id}','filename',this.value)" onblur="updateAction('${a.id}','filename',this.value)"></div>
         <div class="field"><label>Node ${help('Which node to pull packages from and group.')}</label><select onchange="updateAction('${a.id}','node',this.value)"><option value=""></option>${optionList(nodeLabels(), a.node)}</select></div>
         <div class="field"><label>Group size ${help('How many packages get combined into each group.')}</label><input type="number" min="1" value="${esc(a.size)}" oninput="updateAction('${a.id}','size',this.value)"></div>
         <div class="field checkbox"><input type="checkbox" id="srt-${loc}-${a.id}" ${a.sort?'checked':''} onchange="updateAction('${a.id}','sort',this.checked)"><label for="srt-${loc}-${a.id}">sort node in place</label>${help('If checked, the node contents are physically reordered by this grouping, not just reported.')}</div>
@@ -3041,6 +3110,7 @@ function actionCardHtml(a, i, loc){
             ${(a.criteria||[]).map((c,ci)=>`
               <div class="entry-card" style="background:var(--panel);">
                 <button class="remove" onclick="removeActCriterion('${a.id}',${ci})">&times;</button>
+                <div class="criterion-summary">${esc(criterionSummary(c, CRITERIA_VARIABLE_DEFS, nodes))}</div>
                 <div class="field-grid">
                   <div class="field"><label>Region</label>
                     <select onchange="updateActCriterion('${a.id}',${ci},'region',this.value)">
@@ -3053,7 +3123,7 @@ function actionCardHtml(a, i, loc){
                       ${variableOptionsHtml(CRITERIA_VARIABLE_DEFS, c.variable)}
                     </select>
                   </div>
-                  <div class="field"><label>Principle</label>
+                  <div class="field"><label>Principle ${help('max = the value must be at least the threshold (the threshold is a floor). min = the value must be at most the threshold (the threshold is a ceiling).')}</label>
                     <select onchange="updateActCriterion('${a.id}',${ci},'principle',this.value)">
                       <option value="min" ${c.principle==='min'?'selected':''}>min</option>
                       <option value="max" ${c.principle==='max'?'selected':''}>max</option>
@@ -3068,21 +3138,7 @@ function actionCardHtml(a, i, loc){
           ${(a.criteria||[]).length>1 ? `
           <div class="subblock">
             <div class="subblock-title">Alternative combinations (optional)</div>
-            <p class="empty-hint" style="margin-top:0;">By default a group must satisfy <strong>all</strong> criteria above &mdash; add a row to also accept some other combination.</p>
-            <div class="rows">
-              ${(a.conditions||[]).map((cond,condi)=>`
-                <div class="entry-card" style="background:var(--panel);padding:12px 14px;">
-                  <button class="remove" onclick="removeActCondition('${a.id}',${condi})">&times;</button>
-                  <div class="condition-row">
-                    ${a.criteria.map((c,ci)=>`
-                      <label class="cond-check ${cond[ci]?'is-true':'is-false'}">
-                        <input type="checkbox" ${cond[ci]?'checked':''} onchange="toggleActCondition('${a.id}',${condi},${ci},this.checked)">
-                        Criterion ${ci+1} (${c.variable}, ${c.region})
-                      </label>`).join('')}
-                  </div>
-                </div>`).join('') || '<p class="empty-hint">No alternative combinations yet.</p>'}
-            </div>
-            <button class="ghost small" style="margin-top:8px;" onclick="addActCondition('${a.id}')">+ combination</button>
+            ${criteriaCombinationBuilderHtml('act', a.id, a.criteria, a.conditions, CRITERIA_VARIABLE_DEFS, nodes)}
           </div>` : ''}
         </div>`;
     }
@@ -3166,6 +3222,24 @@ function filterToken(f){
   return '';
 }
 
+// A condition row with one or more null ("doesn't matter") entries isn't directly
+// expressible in the underlying binary True/False <condition> schema, so it's expanded
+// here into every True/False combination for the null positions, keeping the explicitly
+// set (true/false) positions fixed. Each resulting row is emitted as its own <condition>
+// line -- the XML output stays exactly the same shape it always was.
+function expandConditionRow(cond){
+  const nullIdx = [];
+  cond.forEach((v,i)=>{ if(v===null || v===undefined) nullIdx.push(i); });
+  if(!nullIdx.length) return [cond.slice()];
+  const rows = [];
+  const total = 1 << nullIdx.length;
+  for(let mask=0; mask<total; mask++){
+    const row = cond.slice();
+    nullIdx.forEach((idx,bit)=>{ row[idx] = !!(mask & (1<<bit)); });
+    rows.push(row);
+  }
+  return rows;
+}
 function buildXML(){
   let lines = [];
   lines.push('<?xml version="1.0" encoding="UTF-8"?>');
@@ -3259,8 +3333,10 @@ function buildXML(){
       if(activeConditions.length){
         lines.push('      <conditions>');
         activeConditions.forEach(cond=>{
-          const tokens = o.criteria.map((c,ci)=> cond[ci] ? 'True' : 'False');
-          lines.push(`        <condition>${tokens.join(' ')}</condition>`);
+          expandConditionRow(cond).forEach(row=>{
+            const tokens = o.criteria.map((c,ci)=> row[ci] ? 'True' : 'False');
+            lines.push(`        <condition>${tokens.join(' ')}</condition>`);
+          });
         });
         lines.push('      </conditions>');
       }
@@ -3355,8 +3431,10 @@ function buildXML(){
       if(activeActConditions.length){
         lines.push('      <conditions>');
         activeActConditions.forEach(cond=>{
-          const tokens = a.criteria.map((c,ci)=> cond[ci] ? 'True' : 'False');
-          lines.push(`        <condition>${tokens.join(' ')}</condition>`);
+          expandConditionRow(cond).forEach(row=>{
+            const tokens = a.criteria.map((c,ci)=> row[ci] ? 'True' : 'False');
+            lines.push(`        <condition>${tokens.join(' ')}</condition>`);
+          });
         });
         lines.push('      </conditions>');
       }
