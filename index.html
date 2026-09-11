@@ -198,6 +198,17 @@
     display:flex;align-items:center;gap:10px;cursor:pointer;padding:8px 10px;
     background:var(--panel-alt);border:1px solid var(--border-soft);border-radius:var(--radius);
   }
+  /* execution-order list: same drag-to-reorder language as the action timeline, compact
+     single-row-per-order since there's nothing to expand here -- just the sequence itself. */
+  .order-seq-list{display:flex;flex-direction:column;gap:6px;}
+  .order-seq-item{display:flex;align-items:flex-start;gap:6px;}
+  .order-seq-item.dragging{opacity:0.4;}
+  .order-seq-item.drag-over-top .criterion-item{box-shadow:0 -3px 0 var(--amber);}
+  .order-seq-item.drag-over-bottom .criterion-item{box-shadow:0 3px 0 var(--amber);}
+  .order-seq-handle{cursor:grab;color:var(--text-faint);font-size:15px;line-height:1;touch-action:none;user-select:none;letter-spacing:-1px;flex:none;padding-top:9px;}
+  .order-seq-handle:hover{color:var(--amber);}
+  .order-seq-handle:active{cursor:grabbing;}
+  .criterion-item.is-disabled{opacity:0.55;}
   .action-summary-row:hover{border-color:var(--amber);}
   .action-summary-type{font-family:var(--mono);font-size:11px;font-weight:600;flex-shrink:0;}
   .action-summary-detail{font-family:var(--mono);font-size:11.5px;color:var(--text-dim);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -1125,6 +1136,9 @@
               <div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end;flex-wrap:wrap;">
                 <button class="ghost small" onclick="downloadNetworkSVG()">download graph as SVG</button>
                 <button class="ghost small" onclick="downloadNetworkPNG()">download graph as PNG</button>
+              </div>
+              <div class="subblock" style="margin-top:14px;">
+                <div id="order-sequence-list" class="order-seq-list"></div>
               </div>
             </div>
             <div id="network-inspector" class="subblock"></div>
@@ -2383,7 +2397,7 @@ function packageGroupHtml(groupName, pkgs){
     <div class="criterion-item pkg-group ${expanded?'expanded':''}">
       <div class="criterion-summary-row" onclick="toggleGroupExpanded('${jsEsc(groupName)}')">
         ${critIcon('inventory')}
-        <span class="criterion-text"><strong>${esc(groupName)}</strong> \u00b7 ${pkgs.length} package${pkgs.length===1?'':'s'} \u00b7 ${nucTotal} nuclide${nucTotal===1?'':'s'} total</span>
+        <span class="criterion-text"><span class="sv">${esc(groupName)}</span> \u00b7 ${pkgs.length} package${pkgs.length===1?'':'s'} \u00b7 ${nucTotal} nuclide${nucTotal===1?'':'s'} total</span>
         <span class="criterion-chevron">${expanded?'\u25b2':'\u25bc'}</span>
         <button class="criterion-remove" onclick="event.stopPropagation();removePackageGroup('${jsEsc(groupName)}')" title="remove every package in this group">&times;</button>
       </div>
@@ -2850,9 +2864,11 @@ function removeSource(id){ sources = sources.filter(s=>s.id!==id); if(networkSel
 /* ===================== ORDERS ===================== */
 const DECAY_TYPES = ['alpha','beta-','beta+','ec','it','sf','n','p'];
 function addOrder(){
-  orders.push({id:nid(), label:'Order'+(orders.length+1), homenode:'', remaindernode:'', ordernodes:[], mode:'transfer', magnitude:1,
+  const o = {id:nid(), label:'Order'+(orders.length+1), homenode:'', remaindernode:'', ordernodes:[], mode:'transfer', magnitude:1,
     direction:'old', mixratio:0.5, crumbs:false, rate:0, showAdvanced:false, disabled:false,
-    criteria:[], conditions:[], packageOut:'', packageMass:'', sortNode:''});
+    criteria:[], conditions:[], packageOut:'', packageMass:'', sortNode:''};
+  orders.push(o);
+  expandedOrders.add(o.id);
   renderOrders();
 }
 
@@ -3205,10 +3221,8 @@ function renderFilterFragment(kind,oid,ci,c,f,fi){
 // silent update = don't re-render on every keystroke (keeps focus in text/number inputs), just rebuild XML
 function updateFilterRowSilent(oid,ci,fi,key,val){ orders.find(o=>o.id===oid).criteria[ci].filters[fi][key]=val; scheduleBuildXML(); }
 
-function orderCardHtml(o){
+function orderFieldsHtml(o){
   return `
-    <div class="entry-card ${o.disabled?'is-disabled':''}" id="ordercard-${o.id}">
-      <button class="remove" onclick="removeOrder('${o.id}')">&times;</button>
       <label class="advanced-toggle" style="margin-bottom:8px;">
         <input type="checkbox" ${o.disabled?'':'checked'} onchange="updateOrd('${o.id}','disabled',!this.checked)">
         Enabled ${help('Unchecking this keeps the order defined but excludes it from the simulation entirely — the same as not creating it, without deleting it.')}
@@ -3273,12 +3287,108 @@ function orderCardHtml(o){
       <div class="subblock">
         <div class="subblock-title">Alternative ways to qualify (optional) ${help('By default every criterion above must pass. Add an alternative below to also accept packages that satisfy a different set of conditions instead.')}</div>
         ${criteriaCombinationBuilderHtml('ord', o.id, o.criteria, o.conditions, ORDER_CRITERIA_VARIABLE_DEFS, nodes)}
-      </div>` : ''}
-    </div>`;
+      </div>` : ''}`;
 }
 function renderOrders(){
+  renderOrderList();
   buildXML();
 }
+// ---- orders list: collapsed by default, click a row to expand it inline (same
+// collapse/expand pattern as packages and criteria) instead of always showing full detail.
+// Drag the handle to reorder -- since orders run each timestep in exactly the sequence they
+// sit in the `orders` array (which is also exactly the sequence buildXML() emits them in, the
+// simulator has no separate priority field), this list IS the actual execution order, not a
+// preview of it. Clicking an order's arrow on the diagram expands the same row here too, so
+// either entry point lands you in the same place. ----
+let expandedOrders = new Set();
+function toggleOrderExpanded(id){
+  if(expandedOrders.has(id)) expandedOrders.delete(id); else expandedOrders.add(id);
+  renderOrderList();
+}
+function orderListItemHtml(o){
+  const expanded = expandedOrders.has(o.id);
+  const summary = stripTags(orderCriteriaSummary(o));
+  return `
+    <div class="order-seq-item" data-order-id="${o.id}">
+      <span class="order-seq-handle" title="drag to reorder">&#8942;&#8942;</span>
+      <div class="criterion-item ${expanded?'expanded':''} ${o.disabled?'is-disabled':''}" style="flex:1;min-width:0;">
+        <div class="criterion-summary-row" onclick="toggleOrderExpanded('${o.id}')">
+          ${critIcon('activity')}
+          <span class="criterion-text"><span class="sv">${esc(o.label)}</span>${o.disabled?' (off)':''} \u00b7 ${esc(summary)}</span>
+          <span class="criterion-chevron">${expanded?'\u25b2':'\u25bc'}</span>
+          <button class="criterion-remove" onclick="event.stopPropagation();removeOrder('${o.id}')" title="remove order">&times;</button>
+        </div>
+        ${expanded ? `<div class="criterion-body">${orderFieldsHtml(o)}</div>` : ''}
+      </div>
+    </div>`;
+}
+function renderOrderList(){
+  const el = document.getElementById('order-sequence-list');
+  if(!el) return;
+  el.innerHTML = orders.length
+    ? orders.map(o=>orderListItemHtml(o)).join('')
+    : '<p class="empty-hint">No orders yet — drag between two nodes on the diagram to create one.</p>';
+  wireOrderSeqDrag();
+}
+function moveOrderInSequence(fromIndex, toIndex){
+  if(fromIndex===toIndex || fromIndex<0 || toIndex<0 || fromIndex>=orders.length || toIndex>=orders.length) return;
+  const [item] = orders.splice(fromIndex, 1);
+  orders.splice(toIndex, 0, item);
+  renderOrderList();
+  buildXML();
+  if(typeof renderNetworkInspector==='function') renderNetworkInspector();
+  if(typeof scheduleNetworkRender==='function') scheduleNetworkRender();
+}
+let orderSeqDrag = null; // {orderId, targetOrderId, insertBefore}
+function wireOrderSeqDrag(){
+  const container = document.getElementById('order-sequence-list');
+  if(!container) return;
+  container.querySelectorAll('.order-seq-handle').forEach(handle=>{
+    handle.addEventListener('pointerdown', e=>{
+      const item = handle.closest('.order-seq-item');
+      if(!item) return;
+      orderSeqDrag = { orderId: item.dataset.orderId, targetOrderId:null, insertBefore:true };
+      item.classList.add('dragging');
+      try{ handle.setPointerCapture(e.pointerId); }catch(err){}
+      e.preventDefault();
+    });
+  });
+}
+document.addEventListener('pointermove', e=>{
+  if(!orderSeqDrag) return;
+  const container = document.getElementById('order-sequence-list');
+  if(!container) return;
+  const items = Array.from(container.querySelectorAll('.order-seq-item'));
+  items.forEach(i=>i.classList.remove('drag-over-top','drag-over-bottom'));
+  let targetItem = null;
+  for(const item of items){
+    const rect = item.getBoundingClientRect();
+    if(e.clientY >= rect.top && e.clientY <= rect.bottom){ targetItem = item; break; }
+  }
+  if(targetItem && targetItem.dataset.orderId !== orderSeqDrag.orderId){
+    const rect = targetItem.getBoundingClientRect();
+    const insertBefore = e.clientY < rect.top + rect.height/2;
+    targetItem.classList.add(insertBefore ? 'drag-over-top' : 'drag-over-bottom');
+    orderSeqDrag.targetOrderId = targetItem.dataset.orderId;
+    orderSeqDrag.insertBefore = insertBefore;
+  } else {
+    orderSeqDrag.targetOrderId = null;
+  }
+});
+document.addEventListener('pointerup', e=>{
+  if(!orderSeqDrag) return;
+  const drag = orderSeqDrag;
+  orderSeqDrag = null;
+  document.querySelectorAll('.order-seq-item').forEach(i=>i.classList.remove('dragging','drag-over-top','drag-over-bottom'));
+  if(drag.targetOrderId){
+    const fromIndex = orders.findIndex(o=>o.id===drag.orderId);
+    let toIndex = orders.findIndex(o=>o.id===drag.targetOrderId);
+    if(fromIndex<0 || toIndex<0) return;
+    if(!drag.insertBefore) toIndex += 1;
+    if(toIndex > fromIndex) toIndex -= 1; // removing the dragged item first shifts later indices down by one
+    moveOrderInSequence(fromIndex, toIndex);
+  }
+});
 function updateOrd(id,key,val){
   const o=orders.find(x=>x.id===id); if(!o) return;
   if(key==='label'){
@@ -5589,6 +5699,7 @@ function networkAddOrder(){
     criteria:[], conditions:[], packageOut:'', packageMass:'', sortNode:''};
   orders.push(o);
   networkSelection = {type:'order', id:o.id};
+  expandedOrders.add(o.id);
   renderOrders();
   renderNetworkDiagram();
   renderNetworkInspector();
@@ -5647,6 +5758,7 @@ function createOrderBetween(fromNodeId, toNodeId){
     criteria:[], conditions:[], packageOut:'', packageMass:'', sortNode:''};
   orders.push(o);
   networkSelection = {type:'order', id:o.id};
+  expandedOrders.add(o.id);
   renderOrders(); // also cascades to buildXML, but that only
                    // schedules a deferred diagram redraw (for coalescing rapid-fire changes) --
                    // this is a discrete one-shot action, so render the diagram synchronously here.
@@ -5657,6 +5769,11 @@ function selectNetworkElement(type, id){
   networkSelection = type ? {type, id} : null;
   renderNetworkInspector();
   renderNetworkDiagram();
+  if(type==='order'){
+    // Clicking an order's arrow on the diagram expands the same row in the Orders list below.
+    expandedOrders.add(id);
+    renderOrderList();
+  }
 }
 function renderNetworkInspector(){
   const el = document.getElementById('network-inspector');
@@ -5676,9 +5793,9 @@ function renderNetworkInspector(){
   } else if(type==='order'){
     const o = orders.find(x=>x.id===id);
     if(!o){ networkSelection = null; el.innerHTML=''; updateNetworkAddSourceButton(); return; }
-    el.innerHTML = `
-      <div class="subblock-title">Editing order &mdash; ${esc(o.label)}</div>
-      ${orderCardHtml(o)}`;
+    // Orders edit inline in the Orders list below the diagram now (clicking here already
+    // expanded that row and scrolled to it) -- no need to duplicate the whole editor up here too.
+    el.innerHTML = `<p class="empty-hint" style="margin:0;">Editing <strong>${esc(o.label)}</strong> &mdash; see the expanded row in the Orders list below the diagram.</p>`;
   } else if(type==='source'){
     const s = sources.find(x=>x.id===id);
     if(!s){ networkSelection = null; el.innerHTML=''; updateNetworkAddSourceButton(); return; }
