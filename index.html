@@ -40,9 +40,6 @@
     --on-ok:#0a1a14;
     --ok-tint:#132420;
     --amber-hover:#6ee4ff;
-    --violet:#c197f7;
-    --violet-dim:#9a6bd9;
-    --violet-tint:#1c1626;
     --code-bg:#081015;
     --code-text:#8fd4ea;
     --header-bg:rgba(7,12,17,0.92);
@@ -70,9 +67,6 @@
     --on-ok:#f2fbf6;
     --ok-tint:#e2f3e9;
     --amber-hover:#005e76;
-    --violet:#7a3fc4;
-    --violet-dim:#6530a8;
-    --violet-tint:#f1eaf9;
     --code-bg:#eef3f6;
     --code-text:#0a4b5e;
     --header-bg:rgba(247,250,252,0.92);
@@ -335,27 +329,26 @@
   .criterion-body{padding:14px;border-top:1px solid var(--border-soft);background:var(--panel);}
   .criterion-empty{color:var(--text-faint);font-family:var(--mono);font-size:11.5px;margin:0 0 8px 0;padding:4px 2px;}
 
-  /* ---------- criteria: visual rework (icons, sentence layout, exceptions, live preview) ---------- */
+  /* ---------- criteria: visual rework (icons, sentence layout, live preview) ---------- */
   .criterion-item{border-left:3px solid var(--border-soft);}
-  .criterion-item.is-exception{border-left-color:var(--violet);}
   .crit-icon{
     width:22px;height:22px;border-radius:6px;flex:none;display:flex;align-items:center;justify-content:center;
     background:color-mix(in srgb, var(--amber) 14%, transparent);color:var(--amber);
   }
-  .criterion-item.is-exception .crit-icon{background:color-mix(in srgb, var(--violet) 16%, transparent);color:var(--violet);}
   .crit-icon svg{width:13px;height:13px;}
   .criterion-index{display:none;} /* superseded by .crit-icon, kept in DOM-compat spots only */
   .criterion-summary-row{gap:9px;padding:9px 10px;}
   .criterion-text{font-family:var(--sans);font-size:12.5px;line-height:1.35;white-space:normal;}
   .criterion-text .sv{color:var(--amber-dim);}
+  /* package groups: a group is a minimizable window like any other criterion-item, just holding
+     a list of package rows -- ok-green accent instead of amber so a group header reads as
+     distinct from an individual package at a glance. */
+  .criterion-item.pkg-group{border-left-color:var(--ok);}
+  .criterion-item.pkg-group .crit-icon{background:color-mix(in srgb, var(--ok) 16%, transparent);color:var(--ok);}
+  .pkg-group-body{display:flex;flex-direction:column;gap:6px;padding:10px;}
+  .pkg-group-body .criterion-item{border-left-width:2px;}
   .criterion-text .sn{color:var(--ok);}
   .criterion-text .criterion-scope{color:var(--text-faint);}
-  .crit-badge{
-    font-family:var(--mono);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
-    border-radius:9px;padding:2px 7px;flex:none;line-height:1.5;
-  }
-  .crit-badge.exception{color:var(--violet);border:1px solid var(--violet-dim);background:var(--violet-tint);}
-  .crit-badge.default{color:var(--text-faint);border:1px solid var(--border);background:transparent;}
 
   /* fill-in-the-blank sentence layout — same font/size as every other field in the app;
      only the background tint marks a piece as "fill in here", not weight or a different face. */
@@ -375,21 +368,13 @@
   .crit-pick-trigger:focus{outline:1px solid var(--amber);}
   .crit-pick-caret{flex:none;width:8px;height:5px;color:var(--amber-dim);}
   .crit-value-wrap{display:inline-flex;align-items:center;}
-  .crit-value-wrap .dist-wrap{min-width:100px;}
+  .crit-value-wrap .dist-wrap{min-width:0;}
   .crit-value-wrap .dist-wrap input{
     background:color-mix(in srgb, var(--ok) 9%, transparent);border:1px solid var(--ok);color:var(--text);
-    font-family:var(--sans);font-weight:400;font-size:13px;border-radius:5px;padding:4px 22px 4px 8px;
+    font-family:var(--sans);font-weight:400;font-size:13px;border-radius:5px;padding:4px 20px 4px 8px;width:72px;
   }
   .crit-unit{font-family:var(--sans);font-size:12px;color:var(--text-faint);}
   .crit-node-picker{margin-top:6px;}
-
-  .crit-actions-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
-  button.add-exception{
-    font-family:var(--sans);font-size:12px;letter-spacing:.01em;background:transparent;
-    border:1px dashed var(--violet-dim);color:var(--violet);padding:7px 12px;border-radius:2px;cursor:pointer;transition:all .15s;
-    display:inline-flex;align-items:center;
-  }
-  button.add-exception:hover{border-style:solid;background:var(--violet-tint);}
 
   /* nuclide/decay/half-life restrictions -- read as one flowing, comma-separated continuation
      of the sentence above ("specifically Co60, Sr90 and radionuclides with half-lives under 30
@@ -406,11 +391,12 @@
   .filter-frag .rm{background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:13px;padding:0 2px;flex:none;}
   .filter-frag .rm:hover{color:var(--danger);}
   .filter-frag .fc-extra{color:var(--text-faint);}
+  .filter-frag .fc-extra-trigger{cursor:pointer;border-bottom:1px dotted var(--text-faint);}
+  .filter-frag .fc-extra-trigger:hover{color:var(--amber);border-color:var(--amber);}
   .filter-frag .fc-extra .sn{color:var(--ok);}
-  .filter-frag .crit-value-wrap .dist-wrap{min-width:56px;}
-  .filter-frag .crit-value-wrap .dist-wrap input{font-size:12.5px;padding:2px 20px 2px 6px;}
+  .filter-frag .crit-value-wrap .dist-wrap{min-width:0;}
+  .filter-frag .crit-value-wrap .dist-wrap input{font-size:12.5px;padding:2px 18px 2px 6px;width:52px;}
   .filter-join{color:var(--text-faint);font-weight:600;}
-  .filter-except-lead{color:var(--violet);}
   .add-restriction-btn{
     display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;flex:none;
     color:var(--amber-dim);background:color-mix(in srgb, var(--amber) 10%, transparent);border:1.5px dashed var(--amber-dim);
@@ -1087,6 +1073,9 @@
                 <div class="field"><label>Override decay_chain</label>
                   <select id="pkg-excel-override-decay_chain"><option value="">keep as parsed (true)</option><option value="true">force true</option><option value="false">force false</option></select>
                 </div>
+                <div class="field span2"><label>Group label <span class="help-bubble" tabindex="0">?<span class="tip">Groups imported packages under one collapsible header in the list below, instead of hundreds of separate rows. Leave blank to use each row's own sheet name as its group automatically — fill this in to put everything from this import under one custom label instead.</span></span></label>
+                  <input type="text" id="pkg-excel-group-override" placeholder="leave blank to group by sheet name">
+                </div>
               </div>
               <div id="pkg-excel-status" class="empty-hint"></div>
               <div id="pkg-excel-preview"></div>
@@ -1167,7 +1156,6 @@
               <h3>step-config.xml</h3>
               <span class="chain"><span class="node small"></span><span class="arm" style="width:8px"></span><span class="node small"></span></span>
             </div>
-            <div class="preview-box"><pre id="xml-preview-network"></pre></div>
             <div class="filebar">
               <input type="text" id="xml-filename-network" value="model.xml">
               <button class="ghost small" onclick="document.getElementById('xml-load-input-network').click()">Load .xml</button>
@@ -1176,6 +1164,7 @@
             </div>
             <p class="empty-hint" id="xml-load-status-network" style="margin-top:6px;"></p>
             <div id="xml-sanity-warnings" style="display:none;margin-top:12px;padding:10px 12px;border:1px solid var(--danger);border-radius:var(--radius);background:rgba(169,64,45,0.08);font-family:var(--mono);font-size:11.5px;color:var(--text);"></div>
+            <div class="preview-box" style="margin-top:12px;"><pre id="xml-preview-network"></pre></div>
           </div>
         </div>
   </div>
@@ -1730,7 +1719,7 @@ function updateUniverseSettingSilent(key, val, sourceLoc){
   const otherLoc = sourceLoc==='form' ? 'network' : 'form';
   const otherEl = document.getElementById(`u-${key}-${otherLoc}`);
   if(otherEl && document.activeElement!==otherEl) otherEl.value = val;
-  buildXML();
+  scheduleBuildXML();
 }
 function packageRefDateHtml(){
   return `
@@ -1831,7 +1820,7 @@ function critIcon(variable){
 function criterionSummary(c, defs, nodes){
   defs = defs || CRITERIA_VARIABLE_DEFS;
   const varLabel = criteriaVariableLabel(defs, c.variable);
-  const cmp = c.principle === 'max' ? '\u2265' : '\u2264'; // max = at least (floor), min = at most (ceiling)
+  const cmp = c.principle === 'max' ? '>' : '<'; // max = greater than (floor), min = less than (ceiling)
   const val = (c.value !== '' && c.value !== undefined && c.value !== null) ? c.value : '?';
   let text = `${c.region} ${varLabel} ${cmp} ${val}`;
   if(c.region === 'node' && c.targetNode && nodes){
@@ -1903,12 +1892,7 @@ function filterFragmentText(f){
     const list = (f.decayTypes||[]).slice();
     if(f.decayTypeCustom) list.push(...String(f.decayTypeCustom).split(',').map(s=>s.trim()).filter(Boolean));
     if(!list.length) return '(no decay type chosen)';
-    let text = list.map(d=>d==='alpha'?'\u03b1':d).join('/') + ' emitters';
-    if(f.alsoHalflife && f.hlMagnitude!==''&&f.hlMagnitude!==undefined&&f.hlMagnitude!==null){
-      const unitWord = {y:'years',m:'months',d:'days',h:'hours'}[f.hlUnit] || 'years';
-      text += ` with half-lives ${f.hlCompare==='+'?'over':'under'} ${f.hlMagnitude} ${unitWord}`;
-    }
-    return text;
+    return list.map(d=>d==='alpha'?'\u03b1':d).join('/') + ' emitters';
   }
   if(f.kind==='halflife'){
     const amt = (f.hlMagnitude!==''&&f.hlMagnitude!==undefined&&f.hlMagnitude!==null) ? f.hlMagnitude : '?';
@@ -1950,8 +1934,8 @@ function criteriaVariableLabel(defs, value){
   const found = defs.find(v=>v.value===value);
   return found ? found.label : (value||'value');
 }
-// One-line plain-language description of a single criterion, e.g. "package mass \u2265 500"
-// or "node volume \u2264 10 (at Storage)". Used as the always-visible card header (so a
+// One-line plain-language description of a single criterion, e.g. "package mass > 500"
+// or "node volume < 10 (at Storage)". Used as the always-visible card header (so a
 // criterion's meaning is clear without opening it) and as the chip label in the
 // combination builder, so alternatives read like an actual sentence instead of "Criterion 2".
 function variableOptionsHtml(defs, selected){
@@ -2143,7 +2127,7 @@ function parsePackageExcelWorkbook(wb){
       if(!['A','Ag','Akg','At'].includes(sisend)) warning = `unrecognized "Sisendi liik" value "${sisend}" — defaulted to atoms/0`;
       rowsOut.push({
         label: String(label), mass: massArr[i+1], volume: mahtArr[i+1], mode,
-        inventory, measuredOn: datesArr[i+1] || null, warning
+        inventory, measuredOn: datesArr[i+1] || null, warning, group: sheetName
       });
     }
   });
@@ -2177,11 +2161,12 @@ function renderExcelPreview(){
   const el = document.getElementById('pkg-excel-preview');
   if(!excelParsedRows.length){ el.innerHTML=''; return; }
   const rowsHtml = excelParsedRows.map((r,i)=>{
-    if(r.label.startsWith('(sheet')) return `<tr><td colspan="6" style="color:var(--danger);">${esc(r.label)} &mdash; ${esc(r.warning||'')}</td></tr>`;
+    if(r.label.startsWith('(sheet')) return `<tr><td colspan="7" style="color:var(--danger);">${esc(r.label)} &mdash; ${esc(r.warning||'')}</td></tr>`;
     const nucCount = Object.keys(r.inventory).length;
     return `<tr>
       <td style="text-align:left;"><input type="checkbox" ${excelSelectedRows.has(i)?'checked':''} onchange="toggleExcelRow(${i},this.checked)"></td>
       <td style="text-align:left;">${esc(r.label)}</td>
+      <td style="text-align:left;">${esc(r.group||'')}</td>
       <td>${esc(r.mass)}</td>
       <td>${esc(r.volume)}</td>
       <td style="text-align:left;">${esc(r.mode)}</td>
@@ -2191,7 +2176,7 @@ function renderExcelPreview(){
   el.innerHTML = `
     <div class="table-scroll" style="max-height:260px;margin-top:10px;">
       <table class="data-table">
-        <thead><tr><th></th><th>Label</th><th>Mass</th><th>Volume</th><th>Mode</th><th>Nuclides</th></tr></thead>
+        <thead><tr><th></th><th>Label</th><th>Group (sheet)</th><th>Mass</th><th>Volume</th><th>Mode</th><th>Nuclides</th></tr></thead>
         <tbody>${rowsHtml}</tbody>
       </table>
     </div>
@@ -2232,6 +2217,7 @@ function buildDistributionFromMeanAndRelativeError(mean, relErrorPercent, distTy
 function commitExcelPackages(){
   const overrideRadioactiveSel = document.getElementById('pkg-excel-override-radioactive').value;
   const overrideDecayChainSel = document.getElementById('pkg-excel-override-decay_chain').value;
+  const groupOverride = document.getElementById('pkg-excel-group-override').value.trim();
   const applyUncertainty = document.getElementById('pkg-excel-uncertainty-enable').checked;
   const uncertaintyType = document.getElementById('pkg-excel-uncertainty-type').value;
   const uncertaintyRelErr = document.getElementById('pkg-excel-uncertainty-relerr').value;
@@ -2242,6 +2228,7 @@ function commitExcelPackages(){
       radioactive: overrideRadioactiveSel==='' ? true : overrideRadioactiveSel==='true',
       decay_chain: overrideDecayChainSel==='' ? true : overrideDecayChainSel==='true',
       packageDate: toDatetimeLocalString(r.measuredOn), showAdvanced:true,
+      group: groupOverride || r.group || '',
       nuclides: Object.entries(r.inventory).map(([name,value])=>({
         name,
         value: applyUncertainty ? buildDistributionFromMeanAndRelativeError(value, uncertaintyRelErr, uncertaintyType) : value
@@ -2285,11 +2272,35 @@ function copyPackageLabels(btnEl){
     legacyCopy();
   }
 }
+let expandedPackages = new Set(); // collapsed by default -- with hundreds of packages, having
+                                    // every one fully expanded made the whole tab unusable.
+function togglePackageExpanded(id){
+  if(expandedPackages.has(id)) expandedPackages.delete(id); else expandedPackages.add(id);
+  renderOnePackageCard(id);
+}
+// One-line summary shown on the collapsed row -- enough to tell packages apart at a glance
+// (label, mass/volume if set, mode, nuclide count) without opening every single one.
+function packageSummaryText(p){
+  const nucCount = (p.nuclides||[]).filter(n=>n.name).length;
+  const bits = [];
+  if(p.mass!=='' && p.mass!==undefined) bits.push(`mass ${compactValueDisplay(p.mass)}`);
+  if(p.volume!=='' && p.volume!==undefined) bits.push(`vol ${compactValueDisplay(p.volume)}`);
+  bits.push(p.mode);
+  bits.push(`${nucCount} nuclide${nucCount===1?'':'s'}`);
+  return `${p.label||'(unlabeled)'} \u00b7 ${bits.join(' \u00b7 ')}`;
+}
 function packageCardHtml(p, loc){
   loc = loc || 'form';
+  const expanded = expandedPackages.has(p.id);
   return `
-    <div class="entry-card" id="pkgcard-${loc}-${p.id}">
-      <button class="remove" onclick="removePackage('${p.id}')">&times;</button>
+    <div class="criterion-item ${expanded?'expanded':''}" id="pkgcard-${loc}-${p.id}">
+      <div class="criterion-summary-row" onclick="togglePackageExpanded('${p.id}')">
+        ${critIcon('mass')}
+        <span class="criterion-text">${esc(packageSummaryText(p))}</span>
+        <span class="criterion-chevron">${expanded?'\u25b2':'\u25bc'}</span>
+        <button class="criterion-remove" onclick="event.stopPropagation();removePackage('${p.id}')" title="remove package">&times;</button>
+      </div>
+      ${expanded ? `<div class="criterion-body">
       <div class="field-grid">
         <div class="field"><label>Label</label><input type="text" id="pkg-label-${loc}-${p.id}" value="${esc(p.label)}" onfocus="rememberLabelBeforeEdit('package','${p.id}',this.value)" oninput="updatePkgSilent('${p.id}','label',this.value,'${loc}')" onblur="updatePkg('${p.id}','label',this.value)"></div>
         <div class="field"><label>Mass ${help('Total package mass. Required for activity_concentration mode, and for any activity_concentration/heat_concentration criteria that reference this package.')}</label>${distField(p.mass, `updatePkg('${p.id}','mass',this.value)`, null, {id:`dist-mass-${p.id}`})}</div>
@@ -2343,11 +2354,62 @@ function packageCardHtml(p, loc){
         </div>
         <button class="ghost small" style="margin-top:8px;" onclick="addNuc('${p.id}')">+ nuclide</button>
       </div>
+      </div>` : ''}
     </div>`;
+}
+// Escapes a value for safe embedding inside a single-quoted JS string in an onclick attribute
+// (group names come from spreadsheet sheet names or free text, unlike the internal ids used
+// everywhere else, so they aren't guaranteed to be onclick-safe as-is).
+function jsEsc(s){ return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+let expandedGroups = new Set();
+function toggleGroupExpanded(g){
+  if(expandedGroups.has(g)) expandedGroups.delete(g); else expandedGroups.add(g);
+  renderPackages();
+}
+function removePackageGroup(g){
+  const count = packages.filter(p=>p.group===g).length;
+  if(!confirm(`Remove all ${count} package${count===1?'':'s'} in group "${g}"?`)) return;
+  packages = packages.filter(p=>p.group!==g);
+  expandedGroups.delete(g);
+  renderPackages();
+}
+// A group is its own minimizable window, one level up from individual packages -- same collapse
+// pattern, just holding a list of package rows instead of fields. Lets an Excel import of
+// hundreds of packages land as one closed header instead of hundreds of separate top-level rows.
+function packageGroupHtml(groupName, pkgs){
+  const expanded = expandedGroups.has(groupName);
+  const nucTotal = pkgs.reduce((s,p)=> s+(p.nuclides||[]).filter(n=>n.name).length, 0);
+  return `
+    <div class="criterion-item pkg-group ${expanded?'expanded':''}">
+      <div class="criterion-summary-row" onclick="toggleGroupExpanded('${jsEsc(groupName)}')">
+        ${critIcon('inventory')}
+        <span class="criterion-text"><strong>${esc(groupName)}</strong> \u00b7 ${pkgs.length} package${pkgs.length===1?'':'s'} \u00b7 ${nucTotal} nuclide${nucTotal===1?'':'s'} total</span>
+        <span class="criterion-chevron">${expanded?'\u25b2':'\u25bc'}</span>
+        <button class="criterion-remove" onclick="event.stopPropagation();removePackageGroup('${jsEsc(groupName)}')" title="remove every package in this group">&times;</button>
+      </div>
+      ${expanded ? `<div class="criterion-body pkg-group-body">${pkgs.map(p=>packageCardHtml(p,'net')).join('')}</div>` : ''}
+    </div>`;
+}
+// Packages with a group land inside their group's window; ungrouped ones render as individual
+// top-level rows same as before, after all the groups.
+function packageListHtml(){
+  if(!packages.length) return '';
+  const groups = {};
+  const order = [];
+  const ungrouped = [];
+  packages.forEach(p=>{
+    if(p.group){
+      if(!groups[p.group]){ groups[p.group] = []; order.push(p.group); }
+      groups[p.group].push(p);
+    } else {
+      ungrouped.push(p);
+    }
+  });
+  return order.map(g=>packageGroupHtml(g, groups[g])).join('') + ungrouped.map(p=>packageCardHtml(p,'net')).join('');
 }
 function renderPackages(){
   const netEl = document.getElementById('network-packages-list');
-  if(netEl) netEl.innerHTML = packages.map(p=>packageCardHtml(p,'net')).join('') || '<p class="empty-hint">No packages yet.</p>';
+  if(netEl) netEl.innerHTML = packageListHtml() || '<p class="empty-hint">No packages yet.</p>';
   const countEl2 = document.getElementById('count-packages-network');
   if(countEl2) countEl2.textContent = packages.length;
   renderPackageRefDate();
@@ -2355,11 +2417,14 @@ function renderPackages(){
   buildXML();
 }
 function addPackage(){
-  const p = {id:nid(), label:'Package'+(packages.length+1), mass:'', volume:'', mode:'activity', radioactive:true, decay_chain:true, packageDate:'', showAdvanced:false, secularEquilibrium:'', nuclides:[{name:'',value:''}]};
+  const p = {id:nid(), label:'Package'+(packages.length+1), mass:'', volume:'', mode:'activity', radioactive:true, decay_chain:true, packageDate:'', showAdvanced:false, secularEquilibrium:'', group:'', nuclides:[{name:'',value:''}]};
   packages.push(p);
+  expandedPackages.add(p.id); // open right away so it's ready to fill in, unlike existing (collapsed) ones
   // Append just the new card instead of rebuilding every existing card -- rebuilding the whole
   // list on every add made creating N packages an O(N^2) operation, which is what made adding
-  // 100+ packages one at a time feel like it was getting slower and slower as you went.
+  // 100+ packages one at a time feel like it was getting slower and slower as you went. Safe
+  // here because a freshly-added package is always ungrouped, and ungrouped rows always render
+  // last -- appending at the very end of the list is exactly where it belongs.
   const netEl = document.getElementById('network-packages-list');
   if(netEl){
     if(packages.length === 1) netEl.innerHTML = '';
@@ -2395,7 +2460,17 @@ function updatePkg(id,key,val){
   } else {
     p[key]=val;
   }
-  if(key==='packageDate' || key==='showAdvanced' || key==='mode'){ renderPackages(); return; }
+  if(key==='packageDate' || key==='showAdvanced' || key==='mode'){ renderOnePackageCard(id); renderPackageRefDate(); return; }
+  buildXML();
+}
+// Rewrites just one package's card in place instead of rebuilding the whole list -- at a few
+// hundred+ packages, rebuilding every card for a single checkbox toggle or added nuclide is
+// the difference between an instant update and a multi-second freeze.
+function renderOnePackageCard(id){
+  const p = packages.find(x=>x.id===id);
+  if(!p) return;
+  const el = document.getElementById(`pkgcard-net-${id}`);
+  if(el) el.outerHTML = packageCardHtml(p, 'net');
   buildXML();
 }
 function updatePkgSilent(id,key,val,sourceLoc){
@@ -2406,7 +2481,7 @@ function updatePkgSilent(id,key,val,sourceLoc){
     const otherEl = document.getElementById(`pkg-label-${otherLoc}-${id}`);
     if(otherEl && document.activeElement!==otherEl) otherEl.value = val;
   }
-  buildXML();
+  scheduleBuildXML();
 }
 function updatePkgSecularMode(id, mode){
   const p = packages.find(x=>x.id===id);
@@ -2416,12 +2491,29 @@ function updatePkgSecularMode(id, mode){
   p.secularEquilibriumMode = mode;
   if(mode !== 'specific') p.secularEquilibrium = mode; // '' (none) or 'all'
   else if(p.secularEquilibrium === 'all') p.secularEquilibrium = ''; // don't leak "all" into specific mode
-  renderPackages();
+  renderOnePackageCard(id);
 }
-function addNuc(id){ packages.find(p=>p.id===id).nuclides.push({name:'',value:''}); renderPackages(); }
-function removeNuc(id,i){ packages.find(p=>p.id===id).nuclides.splice(i,1); renderPackages(); }
-function updateNuc(id,i,key,val){ packages.find(p=>p.id===id).nuclides[i][key]=val; buildXML(); }
-function removePackage(id){ packages = packages.filter(p=>p.id!==id); renderPackages(); }
+function addNuc(id){ packages.find(p=>p.id===id).nuclides.push({name:'',value:''}); renderOnePackageCard(id); }
+function removeNuc(id,i){ packages.find(p=>p.id===id).nuclides.splice(i,1); renderOnePackageCard(id); }
+function updateNuc(id,i,key,val){ packages.find(p=>p.id===id).nuclides[i][key]=val; scheduleBuildXML(); }
+function removePackage(id){
+  const removed = packages.find(p=>p.id===id);
+  packages = packages.filter(p=>p.id!==id);
+  // If that was the last package in its group, the (now-empty) group header needs to disappear
+  // too -- that's a structural change the fast single-element removal below can't do, so fall
+  // back to a full (still cheap at this point -- one package's worth of work) re-render.
+  if(removed && removed.group && !packages.some(p=>p.group===removed.group)){ renderPackages(); return; }
+  const el = document.getElementById(`pkgcard-net-${id}`);
+  if(el) el.remove();
+  const countEl2 = document.getElementById('count-packages-network');
+  if(countEl2) countEl2.textContent = packages.length;
+  if(!packages.length){
+    const netEl = document.getElementById('network-packages-list');
+    if(netEl) netEl.innerHTML = '<p class="empty-hint">No packages yet.</p>';
+  }
+  renderNodes(); renderSources(); renderOrders();
+  buildXML();
+}
 
 /* ===================== NODES ===================== */
 function defaultNodePosition(index){
@@ -2487,6 +2579,48 @@ function removeOnePackageFromNode(nodeId, label, evt){
   if(newMult<=0) n.contents.splice(idx,1);
   else n.contents[idx] = `${lbl}*${newMult}`;
   renderNodes();
+}
+// A node's contents can reference a whole package group instead of listing every member
+// package one by one -- stored as a single "@GroupName" token, kept separate from ordinary
+// package tokens so it always shows as one row regardless of how many packages are in the
+// group, and stays in sync automatically (it's resolved against the *current* group membership
+// at XML build time, in buildXML(), rather than snapshotted at the moment it's added).
+function definedPackageGroups(){
+  const set = new Set();
+  packages.forEach(p=>{ if(p.group) set.add(p.group); });
+  return Array.from(set);
+}
+function nodeGroupTokens(n){ return (n.contents||[]).filter(tok=>String(tok).startsWith('@')); }
+function addGroupToNode(nodeId, groupName){
+  const n = nodes.find(x=>x.id===nodeId);
+  const tok = '@'+groupName;
+  if(!(n.contents||[]).includes(tok)) n.contents = (n.contents||[]).concat([tok]);
+  renderNodes();
+}
+function removeGroupFromNode(nodeId, groupName, evt){
+  if(evt) evt.stopPropagation();
+  const n = nodes.find(x=>x.id===nodeId);
+  const tok = '@'+groupName;
+  n.contents = (n.contents||[]).filter(t=>t!==tok);
+  renderNodes();
+}
+// Sleek by design: this only ever shows one row per group, never the group's member packages,
+// no matter how large the group is -- that expansion only happens once, invisibly, in buildXML().
+function nodeGroupRowHtml(n){
+  const groups = definedPackageGroups();
+  if(!groups.length) return '';
+  const active = nodeGroupTokens(n).map(t=>t.slice(1));
+  return `
+    <div class="subblock">
+      <div class="subblock-title">Add a whole group ${help('Adds every package currently in that group to this node, shown here as a single row no matter how many packages the group has — the exported XML expands it to the full package list. Stays in sync: add or remove packages from the group later and this node follows automatically.')}</div>
+      <div class="pkg-btn-row">
+        ${groups.map(g=>{
+          const count = packages.filter(p=>p.group===g).length;
+          const on = active.includes(g);
+          return `<button type="button" class="pkg-btn ${on?'present':''}" onclick="${on?`removeGroupFromNode('${n.id}','${jsEsc(g)}',event)`:`addGroupToNode('${n.id}','${jsEsc(g)}')`}" title="${on?'remove this group':'add this group'}">${esc(g)} <span class="pkg-btn-count">${count}</span></button>`;
+        }).join('')}
+      </div>
+    </div>`;
 }
 const PKG_BUTTON_SEARCH_THRESHOLD = 24;
 function pkgButtonRowHtml(n, allLabels, searchTerm){
@@ -2560,6 +2694,7 @@ function nodeCardHtml(n){
             onblur="renderNodes()">${esc((n.contents||[]).join(' '))}</textarea>
         </div>
       </div>
+      ${nodeGroupRowHtml(n)}
       <div class="subblock">
         <div class="subblock-title">Add packages${showSearch ? ` <span class="hint">(${allLabels.length} total &mdash; search to find one)</span>` : ''}</div>
         ${showSearch ? `<input type="text" placeholder="Search packages to add..." value="${esc(n.pkgSearch||'')}" oninput="filterNodePackageButtons('${n.id}', this.value)" style="margin-bottom:8px;">` : ''}
@@ -2626,7 +2761,7 @@ function updateNodeSilent(id,key,val){
   // silently reconnect something to the wrong node. Just update the field so the node's own box
   // shows live text; the real cascade + uniqueness check happens once, on blur, against the final value.
   n[key]=val;
-  buildXML();
+  scheduleBuildXML();
 }
 function deleteOrdersReferencingNode(nodeId){
   let deletedAnySelected = false;
@@ -2708,7 +2843,7 @@ function updateSrc(id,key,val){
 function updateSrcSilent(id,key,val){
   const s=sources.find(x=>x.id===id); if(!s) return;
   s[key]=val; // live field update only -- cascade + uniqueness happen once, on blur
-  buildXML();
+  scheduleBuildXML();
 }
 function removeSource(id){ sources = sources.filter(s=>s.id!==id); if(networkSelection && networkSelection.type==='source' && networkSelection.id===id) networkSelection=null; renderSources(); if(typeof renderNetworkDiagram==='function') renderNetworkDiagram(); if(typeof renderNetworkInspector==='function') renderNetworkInspector(); }
 
@@ -2743,7 +2878,7 @@ function toggleCriterionExpanded(kind, id, ci){
 // as if it applied to everything — a frequent source of confusion before.
 function criterionSummaryCompact(c, nodes){
   const varLabel = chipVariableLabel(c.variable);
-  const cmp = c.principle === 'max' ? '\u2265' : '\u2264';
+  const cmp = c.principle === 'max' ? '>' : '<';
   const val = (c.value !== '' && c.value !== undefined && c.value !== null) ? compactValueDisplay(c.value) : '?';
   let core = `${varLabel} ${cmp} ${val}`;
   if(c.region === 'node'){
@@ -2766,7 +2901,7 @@ function criterionSummaryCompact(c, nodes){
 function criterionPlainSentence(c, defs, nodes){
   defs = defs || CRITERIA_VARIABLE_DEFS;
   const varLabel = criteriaVariableLabel(defs, c.variable);
-  const cmp = c.principle === 'max' ? 'at least' : 'at most';
+  const cmp = c.principle === 'max' ? 'greater than' : 'less than';
   const val = (c.value !== '' && c.value !== undefined && c.value !== null) ? compactValueDisplay(c.value) : '?';
   let scope = 'each package';
   if(c.region === 'node'){
@@ -2786,28 +2921,16 @@ function criterionItemHtml(kind, id, c, ci, defs, nodes){
   const isExpanded = expandedCriteria.has(key);
   const sentence = criterionPlainSentence(c, defs, nodes);
   const removeFn = kind==='ord' ? 'removeCriterion' : 'removeActCriterion';
-  const badge = c.isException ? `<span class="crit-badge exception">exception</span>`
-    : c.isMopUp ? `<span class="crit-badge default">other types</span>`
-    : (criteria2HasException(kind,id) ? `<span class="crit-badge default">required</span>` : '');
   return `
-    <div class="criterion-item ${isExpanded?'expanded':''} ${c.isException?'is-exception':''}">
+    <div class="criterion-item ${isExpanded?'expanded':''}">
       <div class="criterion-summary-row" onclick="toggleCriterionExpanded('${kind}','${id}',${ci})">
         ${critIcon(c.variable)}
         <span class="criterion-text">${sentence}</span>
-        ${badge}
         <span class="criterion-chevron">${isExpanded?'\u25b2':'\u25bc'}</span>
         <button class="criterion-remove" onclick="event.stopPropagation();${removeFn}('${id}',${ci})" title="remove criterion">&times;</button>
       </div>
-      ${isExpanded ? `<div class="criterion-body">${kind==='ord' ? orderCriterionBodyHtml(id, c, ci) : actCriterionBodyHtml(id, c, ci)}
-        ${c._showExcForm ? autoExceptionFormHtml(kind,id,ci,c) : ''}
-      </div>` : ''}
+      ${isExpanded ? `<div class="criterion-body">${kind==='ord' ? orderCriterionBodyHtml(id, c, ci) : actCriterionBodyHtml(id, c, ci)}</div>` : ''}
     </div>`;
-}
-// Whether this order/action has any exception-flagged criteria — used to decide whether the
-// "required" badge is worth showing on the non-exception rows (no point cluttering a plain list).
-function criteria2HasException(kind, id){
-  const item = (kind==='ord' ? orders : actions).find(x=>x.id===id);
-  return !!(item && (item.criteria||[]).some(c=>c.isException));
 }
 // Plain-language summary of the whole rule set for an order/action: how the default (all
 // required) path and any exception/alternative paths combine to decide whether a package
@@ -2827,94 +2950,6 @@ function criteriaListHtml(kind, id, criteria, defs, nodes){
       ${criteria.map((c,ci)=>criterionItemHtml(kind, id, c, ci, defs, nodes)).join('')}
     </div>
     ${addBtn}`;
-}
-// ---- automatic "except for one decay type" wizard --------------------------------------
-// Scoped to the one pattern this can build safely and unambiguously: a criterion whose ONLY
-// restriction is a half-life band (the common "we don't allow long-lived nuclides" rule).
-// Given a decay type and a raised threshold, it builds:
-//   1. this rule, unchanged (the general half-life ban)
-//   2. an exception: [chosen type] AND [same half-life band] <= the raised threshold
-//   3. a "mop-up" rule: for EVERY OTHER decay type, [that type] AND [same half-life band]
-//      must still satisfy the ORIGINAL threshold -- so nothing except the chosen type
-//      actually gets to use the relaxed limit
-// ...then wires one alternative where (1) doesn't matter and (2)+(3) must both pass. Since (1)
-// passing always implies (2) and (3) already hold (same threshold, narrower filters), the net
-// effect is exactly "the general rule, OR the exception together with the reassurance that no
-// other type snuck through" -- with no changes needed to the simulator: it only uses the
-// comma-AND-intersection within a single filter token, which the engine already supports.
-function eligibleForAutoException(c){
-  return isNuclideSpecificVariable(c.variable) && !isMixVariable(c.variable)
-    && (c.filters||[]).length===1 && c.filters[0].kind==='halflife';
-}
-function showExcForm(kind,id,ci){
-  const item = (kind==='ord'?orders:actions).find(x=>x.id===id);
-  item.criteria[ci]._showExcForm = true;
-  if(kind==='ord'){ renderOrders(); if(typeof renderNetworkInspector==='function') renderNetworkInspector(); }
-  else { renderActions(); }
-}
-function autoExceptionFormHtml(kind,id,ci,c){
-  const draft = c._excDraft || {type:'alpha', value:''};
-  c._excDraft = draft;
-  return `
-    <div class="crit-sentence secondary" style="margin-top:8px;">
-      <span class="filter-except-lead">Except for</span>
-      ${critPickBtn(draft.type, 'exceptiontype', kind, id, ci)}
-      <span class="lead">emitters, allow up to</span>
-      <span class="crit-value-wrap">${distField(draft.value, `updateExcDraftSilent('${kind}','${id}',${ci},'value',this.value)`, null, {id:`dist-excdraft-${kind}-${id}-${ci}`, placeholder:'threshold'})}</span>
-      <button type="button" class="add-exception" onclick="createAutoException('${kind}','${id}',${ci})">create</button>
-      ${help('Builds this automatically as two extra criteria joined by an alternative: an exception for the chosen decay type at the raised threshold, and a check re-asserting this rule for every other decay type so nothing else slips through. No changes needed to the simulator.')}
-    </div>`;
-}
-function updateExcDraftSilent(kind,id,ci,key,val){
-  const item = (kind==='ord'?orders:actions).find(x=>x.id===id);
-  const c = item.criteria[ci];
-  c._excDraft = c._excDraft || {type:'alpha', value:''};
-  c._excDraft[key] = val;
-  buildXML();
-}
-function setExcDraftType(kind,id,ci,type){
-  const item = (kind==='ord'?orders:actions).find(x=>x.id===id);
-  const c = item.criteria[ci];
-  c._excDraft = c._excDraft || {type:'alpha', value:''};
-  c._excDraft.type = type;
-  if(kind==='ord'){ renderOrders(); if(typeof renderNetworkInspector==='function') renderNetworkInspector(); }
-  else { renderActions(); }
-}
-function createAutoException(kind, id, ci){
-  const item = (kind==='ord'?orders:actions).find(x=>x.id===id);
-  const c = item.criteria[ci];
-  const draft = c._excDraft || {};
-  const type = draft.type || 'alpha';
-  const value = (draft.value!==undefined && draft.value!==null) ? draft.value : '';
-  const hl = (c.filters||[]).find(f=>f.kind==='halflife');
-  if(value==='' || !hl) return; // need both a threshold and the single half-life restriction this wizard expects
-  const mkFilter = (decayType) => ({
-    id: nid(), kind:'decaytype', nuclideName:'', decayTypes:[decayType], decayTypeCustom:'',
-    hlCompare: hl.hlCompare, hlMagnitude: hl.hlMagnitude, hlUnit: hl.hlUnit, alsoHalflife:true, tokenValue:''
-  });
-  const excCrit = {region:c.region, variable:c.variable, principle:c.principle, value, limitsFile:'', advanced:true, isException:true, filters:[mkFilter(type)]};
-  // The simulator matches decay-type pieces by plain substring containment (e.g. "alpha"
-  // contains the letter "p"), so a short code like the proton-decay "p" can spuriously match
-  // nuclides of a completely different, longer type name. Drop any other type that collides
-  // with the chosen one either way, so the mop-up can't accidentally re-restrict the very
-  // nuclides the exception was just built to free up.
-  const otherTypes = DECAY_TYPES.filter(d=>d!==type && !d.includes(type) && !type.includes(d));
-  // One filter, multiple decay types selected -- buildXML() expands this into one token per
-  // type at export time (each still combined with the same half-life band) so the "any of
-  // these other types" check stays correct, without needing a separate row per type here.
-  const mopUpFilter = Object.assign(mkFilter(otherTypes[0]), {decayTypes: otherTypes});
-  const mopUpCrit = {region:c.region, variable:c.variable, principle:c.principle, value:c.value, limitsFile:'', advanced:true, isMopUp:true, filters:[mopUpFilter]};
-  (item.conditions||[]).forEach(cond=>{ cond.push(true); cond.push(true); });
-  item.criteria.push(excCrit, mopUpCrit);
-  const excIdx = item.criteria.length-2, mopIdx = item.criteria.length-1;
-  item.conditions = item.conditions || [];
-  item.conditions.push(item.criteria.map((cc,idx)=> idx===ci ? null : true));
-  delete c._excDraft;
-  delete c._showExcForm;
-  expandedCriteria.add(criterionKey(kind, id, excIdx));
-  expandedCriteria.add(criterionKey(kind, id, mopIdx));
-  if(kind==='ord'){ renderOrders(); if(typeof renderNetworkInspector==='function') renderNetworkInspector(); }
-  else { renderActions(); }
 }
 // here so every enumerable choice (region, variable, ceiling/floor, node, filter kind, half-life
 // direction/unit) opens the same kind of menu instead of mixing dropdowns and buttons. ----
@@ -2936,25 +2971,17 @@ function critPickerItemsHtml(menuKind, kind, id, ci, fi){
     const defs = kind==='ord' ? ORDER_CRITERIA_VARIABLE_DEFS : CRITERIA_VARIABLE_DEFS;
     return defs.map(d=>opt(d.value,d.label,c.variable)).join('');
   }
-  if(menuKind==='principle') return opt('min','at most',c.principle) + opt('max','at least',c.principle);
+  if(menuKind==='principle') return opt('min','less than',c.principle) + opt('max','greater than',c.principle);
   if(menuKind==='targetnode'){
     return `<button class="${!c.targetNode?'crit-picked':''}" onclick="closeCritPicker();${upd}('${id}',${ci},'targetNode','')">${!c.targetNode?'\u2713 ':''}(candidate node)</button>`
       + nodes.map(n=>opt(n.id,n.label,c.targetNode)).join('');
   }
   if(menuKind==='addfilter'){
-    let html = [
+    return [
       {v:'nuclide', l:'a specific nuclide'},
       {v:'decaytype', l:'a decay type'},
       {v:'halflife', l:'a half-life band'}
     ].map(o=>`<button onclick="closeCritPicker();addFilterRow('${id}',${ci},'${o.v}')">${o.l}</button>`).join('');
-    if(eligibleForAutoException(c)){
-      html += `<button onclick="closeCritPicker();showExcForm('${kind}','${id}',${ci})">except for a decay type&hellip;</button>`;
-    }
-    return html;
-  }
-  if(menuKind==='exceptiontype'){
-    c._excDraft = c._excDraft || {type:'alpha', value:''};
-    return DECAY_TYPES.map(d=>`<button class="${c._excDraft.type===d?'crit-picked':''}" onclick="closeCritPicker();setExcDraftType('${kind}','${id}',${ci},'${d}')">${c._excDraft.type===d?'\u2713 ':''}${esc(d)}</button>`).join('');
   }
   return '';
 }
@@ -3050,11 +3077,11 @@ function orderCriterionBodyHtml(oid, c, ci){
       <span class="lead">'s</span>
       ${critPickBtn(criteriaVariableLabel(varDefs, c.variable), 'variable', 'ord', oid, ci)}
       <span class="lead">must be</span>
-      ${critPickBtn(c.principle==='max'?'at least':'at most', 'principle', 'ord', oid, ci)}
+      ${critPickBtn(c.principle==='max'?'greater than':'less than', 'principle', 'ord', oid, ci)}
       <span class="crit-value-wrap">${distField(c.value, `updateCriterionSilent('${oid}',${ci},'value',this.value)`, null, {id:`dist-critval-${oid}-${ci}`, placeholder: mix?'e.g. 1':'threshold'})}</span>
       ${mix ? '<span class="crit-unit">(cumulative ratio)</span>' : ''}
       ${nucSpecific && !mix ? nuclideFilterClauseHtml(oid, ci, c) : ''}
-      ${help(mix ? 'Cumulative limit for the nuclide mix below (usually 1) — sums value/limit across each listed nuclide and compares the total to this.' : 'at most = a ceiling the value must not exceed. at least = a floor the value must reach. Each variable is either a scalar (mass, volume) or a per-nuclide quantity that sums across nuclides by default.')}
+      ${help(mix ? 'Cumulative limit for the nuclide mix below (usually 1) — sums value/limit across each listed nuclide and compares the total to this.' : 'less than = a ceiling the value must not reach. greater than = a floor the value must exceed. Each variable is either a scalar (mass, volume) or a per-nuclide quantity that sums across nuclides by default.')}
     </div>
     ${c.region==='node' ? `
     <div class="crit-sentence secondary crit-node-picker">
@@ -3073,9 +3100,9 @@ function actCriterionBodyHtml(aid, c, ci){
       <span class="lead">'s</span>
       ${critPickBtn(criteriaVariableLabel(CRITERIA_VARIABLE_DEFS, c.variable), 'variable', 'act', aid, ci)}
       <span class="lead">must be</span>
-      ${critPickBtn(c.principle==='max'?'at least':'at most', 'principle', 'act', aid, ci)}
+      ${critPickBtn(c.principle==='max'?'greater than':'less than', 'principle', 'act', aid, ci)}
       <span class="crit-value-wrap">${distField(c.value, `updateActCriterionSilent('${aid}',${ci},'value',this.value)`, null, {id:`dist-actcritval-${aid}-${ci}`, placeholder:'threshold'})}</span>
-      ${help('at most = a ceiling the value must not exceed. at least = a floor the value must reach.')}
+      ${help('less than = a ceiling the value must not reach. greater than = a floor the value must exceed.')}
     </div>`;
 }
 
@@ -3144,10 +3171,7 @@ function toggleFilterDecayType(oid,ci,fi,type){
 // Each restriction renders inline as one comma-separated piece of the sentence above it —
 // an editable nuclide name, a group of decay-type chips, or a half-life clause — with any
 // per-restriction threshold override or leftover custom decay string tucked into a small
-// "(...)" parenthetical right after it, rather than a separate boxed row. A decay-type
-// restriction built by the automatic exception wizard also carries its own half-life
-// sub-clause (f.alsoHalflife) so it reads "alpha emitters with half-lives over 30 years"
-// and stays fully editable afterwards.
+// "(...)" parenthetical right after it, rather than a separate boxed row.
 function renderFilterFragment(kind,oid,ci,c,f,fi){
   const mix = isMixVariable(c.variable);
   let editable = '';
@@ -3161,12 +3185,6 @@ function renderFilterFragment(kind,oid,ci,c,f,fi){
     editable = `<span class="decay-chip-group">
         ${DECAY_TYPES.map(d=>`<button type="button" class="decay-chip ${selected.includes(d)?'on':''}" onclick="toggleFilterDecayType('${oid}',${ci},${fi},'${d}')" title="${d==='alpha'?'alpha emitters':d}">${esc(d)}</button>`).join('')}
       </span> <span class="lead">emitters</span>`;
-    if(f.alsoHalflife){
-      editable += ` <span class="lead">w/ half-lives</span>
-        ${critPickBtn(f.hlCompare==='+'?'over':'under', 'hlcompare', kind, oid, ci, fi)}
-        <span class="crit-value-wrap">${distField(f.hlMagnitude, `updateFilterRowSilent('${oid}',${ci},${fi},'hlMagnitude',this.value)`, null, {id:`dist-hlmag-${oid}-${ci}-${fi}`, placeholder:'amount'})}</span>
-        ${critPickBtn({y:'years',m:'months',d:'days',h:'hours'}[f.hlUnit]||'years', 'hlunit', kind, oid, ci, fi)}`;
-    }
     if(selected.length>1) paren.push('matches all selected modes at once');
     if(f.decayTypeCustom) paren.push(`also ${esc(f.decayTypeCustom)} <button type="button" class="rm" onclick="updateFilterRow('${oid}',${ci},${fi},'decayTypeCustom','')" title="remove (imported from an older file)">&times;</button>`);
   } else if(f.kind==='halflife'){
@@ -3176,11 +3194,16 @@ function renderFilterFragment(kind,oid,ci,c,f,fi){
       ${critPickBtn({y:'years',m:'months',d:'days',h:'hours'}[f.hlUnit]||'years', 'hlunit', kind, oid, ci, fi)}`;
   }
   if(!mix) paren.push(`limit <span class="crit-value-wrap">${distField(f.tokenValue, `updateFilterRowSilent('${oid}',${ci},${fi},'tokenValue',this.value)`, null, {placeholder:'shared', id:`dist-tokenval-${oid}-${ci}-${fi}`})}</span>`);
-  const parenHtml = paren.length ? ` <span class="fc-extra">(${paren.join('; ')})</span>` : '';
+  // Collapsed behind "(...)" until clicked — the threshold override and the odd-case notes
+  // (multi-mode intersection, a leftover custom decay string) are rarely needed, and showing
+  // them inline by default was adding visual noise and forcing the sentence to wrap.
+  const parenHtml = paren.length
+    ? ` <span class="fc-extra"><span class="fc-extra-trigger" onclick="this.nextElementSibling.style.display='inline';this.style.display='none';" title="show options">(&hellip;)</span><span class="fc-extra-content" style="display:none;">(${paren.join('; ')})</span></span>`
+    : '';
   return `<span class="filter-frag">${editable}${parenHtml}<button class="rm" onclick="removeFilterRow('${oid}',${ci},${fi})" title="remove this restriction">&times;</button></span>`;
 }
 // silent update = don't re-render on every keystroke (keeps focus in text/number inputs), just rebuild XML
-function updateFilterRowSilent(oid,ci,fi,key,val){ orders.find(o=>o.id===oid).criteria[ci].filters[fi][key]=val; buildXML(); }
+function updateFilterRowSilent(oid,ci,fi,key,val){ orders.find(o=>o.id===oid).criteria[ci].filters[fi][key]=val; scheduleBuildXML(); }
 
 function orderCardHtml(o){
   return `
@@ -3275,10 +3298,10 @@ function updateOrd(id,key,val){
 function updateOrdSilent(id,key,val){
   const o=orders.find(x=>x.id===id); if(!o) return;
   o[key]=val; // live field update only -- cascade + uniqueness happen once, on blur
-  buildXML();
+  scheduleBuildXML();
 }
 function removeOrder(id){ orders = orders.filter(o=>o.id!==id); if(networkSelection && networkSelection.type==='order' && networkSelection.id===id) networkSelection=null; renderOrders(); if(typeof renderNetworkDiagram==='function') renderNetworkDiagram(); if(typeof renderNetworkInspector==='function') renderNetworkInspector(); }
-function updateCriterionSilent(oid,ci,key,val){ orders.find(o=>o.id===oid).criteria[ci][key]=val; buildXML(); }
+function updateCriterionSilent(oid,ci,key,val){ orders.find(o=>o.id===oid).criteria[ci][key]=val; scheduleBuildXML(); }
 
 /* ===================== ACTIONS ===================== */
 function addAction(type, atIndex){
@@ -3313,7 +3336,7 @@ function addActCriterion(aid){
   renderActions();
 }
 function updateActCriterion(aid,i,key,val){ actions.find(x=>x.id===aid).criteria[i][key]=val; renderActions(); }
-function updateActCriterionSilent(aid,i,key,val){ actions.find(x=>x.id===aid).criteria[i][key]=val; buildXML(); }
+function updateActCriterionSilent(aid,i,key,val){ actions.find(x=>x.id===aid).criteria[i][key]=val; scheduleBuildXML(); }
 function removeActCriterion(aid,i){
   const a = actions.find(x=>x.id===aid);
   a.criteria.splice(i,1);
@@ -3631,7 +3654,7 @@ function actionCardHtml(a, i, loc){
     </div>`;
 }
 function updateAction(id,key,val){ const a=actions.find(x=>x.id===id); a[key]=val; renderActions(); }
-function updateActionSilent(id,key,val){ const a=actions.find(x=>x.id===id); a[key]=val; buildXML(); }
+function updateActionSilent(id,key,val){ const a=actions.find(x=>x.id===id); a[key]=val; scheduleBuildXML(); }
 function removeAction(id){ actions = actions.filter(a=>a.id!==id); renderActions(); }
 
 /* ---- action timeline drag-to-reorder (pointer events, so it works on touch too) ---- */
@@ -3699,39 +3722,16 @@ function xmlEscAttr(s){ return String(s).replace(/&/g,'&amp;').replace(/"/g,'&qu
 function filterToken(f){
   if(f.kind==='nuclide') return normalizeNuclide(f.nuclideName||'');
   if(f.kind==='decaytype'){
-    // Multiple selected decay types are joined with a comma, which the (unmodified) simulator's
+    // Multiple selected decay types are joined with a comma, which the simulator's
     // recalculate_composition() already treats as an AND-intersection (a nuclide must match
-    // every listed piece) -- this is the same native mechanism a single custom string used
-    // before, just reachable from a multi-select instead of only free text. When the
-    // restriction also carries a half-life band (f.alsoHalflife, set by the automatic
-    // exception wizard), that band is joined in as one more comma piece, e.g. "+30y,alpha" --
-    // this is the exact same existing intersection mechanism, just combining a half-life piece
-    // with a decay-type piece instead of two decay-type pieces. Nothing about the simulator
-    // needs to change for this to work.
+    // every listed mode) -- this is the same mechanism a single custom string used before,
+    // just now reachable from a multi-select instead of only free text.
     const list = (f.decayTypes||[]).slice();
     if(f.decayTypeCustom) list.push(...String(f.decayTypeCustom).split(',').map(s=>s.trim()).filter(Boolean));
-    const dtTok = list.filter(Boolean).join(',');
-    if(!dtTok) return '';
-    if(f.alsoHalflife && f.hlMagnitude!=='' && f.hlMagnitude!==undefined && f.hlMagnitude!==null){
-      return `${f.hlCompare}${f.hlMagnitude}${f.hlUnit},${dtTok}`;
-    }
-    return dtTok;
+    return list.filter(Boolean).join(',');
   }
   if(f.kind==='halflife') return `${f.hlCompare}${f.hlMagnitude||0}${f.hlUnit}`;
   return '';
-}
-// Most filters produce exactly one XML <nuclide> token. A decay-type restriction combined with
-// a half-life band (f.alsoHalflife) and more than one selected type is the exception: joining
-// all the types into one comma token would mean "matches every type at once" (AND), which is
-// almost never true for real nuclide data -- so this expands it into one token per type
-// instead, each still combined with the same half-life band and sharing the same threshold, so
-// "any of these other types" stays correct without needing a separate filter row per type.
-function filterTokens(f){
-  if(f.kind==='decaytype' && f.alsoHalflife && (f.decayTypes||[]).length>1){
-    return f.decayTypes.map(d=>filterToken(Object.assign({}, f, {decayTypes:[d]}))).filter(Boolean);
-  }
-  const t = filterToken(f);
-  return t ? [t] : [];
 }
 
 // A condition row with one or more null ("doesn't matter") entries isn't directly
@@ -3751,6 +3751,19 @@ function expandConditionRow(cond){
     rows.push(row);
   }
   return rows;
+}
+// buildXML() rebuilds the entire model's XML text, updates the live preview, re-checks sanity
+// warnings, and schedules a network-diagram repaint -- all of that is wasted work if it reruns
+// on every single keystroke while typing into a field (mass, a nuclide value, a threshold...),
+// and at hundreds of packages that's the difference between smooth typing and a frozen page.
+// Everything that fires on oninput (the "...Silent" update functions, plus updateNuc) calls
+// this debounced wrapper instead of buildXML() directly; onchange/onblur/onclick handlers that
+// only fire once per discrete action still call buildXML() immediately, since there's no rapid
+// repetition there to coalesce.
+let _buildXmlTimer = null;
+function scheduleBuildXML(){
+  if(_buildXmlTimer) clearTimeout(_buildXmlTimer);
+  _buildXmlTimer = setTimeout(()=>{ _buildXmlTimer = null; buildXML(); }, 250);
 }
 function buildXML(){
   let lines = [];
@@ -3787,7 +3800,15 @@ function buildXML(){
     lines.push('  <nodes>');
     nodes.forEach(n=>{
       const attrs = [`label="${xmlEscAttr(n.label)}"`];
-      const text = (n.contents||[]).join(' ');
+      // A "@GroupName" token expands to every package currently in that group -- the simulator
+      // has no concept of groups, so this is the one place a group reference actually needs to
+      // become a real, space-separated list of package labels.
+      const expandedTokens = (n.contents||[]).flatMap(tok=>{
+        const t = String(tok);
+        if(t.startsWith('@')) return packages.filter(p=>p.group===t.slice(1)).map(p=>p.label).filter(Boolean);
+        return [t];
+      });
+      const text = expandedTokens.join(' ');
       lines.push(`    <node ${attrs.join(' ')}>${xmlEscAttr(text)}</node>`);
     });
     lines.push('  </nodes>');
@@ -3827,18 +3848,16 @@ function buildXML(){
         if(activeFilters.length){
           lines.push(`      <criteria ${cAttrs.join(' ')}>`);
           activeFilters.forEach(f=>{
-            filterTokens(f).forEach(tok=>{
-              if(mix){
-                // Mix criteria compare a single cumulative sum to the shared threshold above — a
-                // per-nuclide criteria value here would turn that threshold into a list and break it.
-                lines.push(`        <nuclide name="${xmlEscAttr(tok)}"/>`);
-              } else {
-                // per-nuclide criteria value must always be present once a nuclide list exists,
-                // otherwise the list length mismatches downstream — fall back to the shared threshold.
-                const val = (f.tokenValue!=='' ? f.tokenValue : (c.value!=='' ? c.value : 0));
-                lines.push(`        <nuclide name="${xmlEscAttr(tok)}" criteria="${xmlEscAttr(val)}"/>`);
-              }
-            });
+            if(mix){
+              // Mix criteria compare a single cumulative sum to the shared threshold above — a
+              // per-nuclide criteria value here would turn that threshold into a list and break it.
+              lines.push(`        <nuclide name="${xmlEscAttr(filterToken(f))}"/>`);
+            } else {
+              // per-nuclide criteria value must always be present once a nuclide list exists,
+              // otherwise the list length mismatches downstream — fall back to the shared threshold.
+              const val = (f.tokenValue!=='' ? f.tokenValue : (c.value!=='' ? c.value : 0));
+              lines.push(`        <nuclide name="${xmlEscAttr(filterToken(f))}" criteria="${xmlEscAttr(val)}"/>`);
+            }
           });
           lines.push('      </criteria>');
         } else {
@@ -3970,6 +3989,7 @@ function buildXML(){
 }
 
 function downloadXML(){
+  if(_buildXmlTimer){ clearTimeout(_buildXmlTimer); _buildXmlTimer=null; }
   const xml = buildXML();
   const fnameEl = document.getElementById('xml-filename-network');
   const fname = (fnameEl && fnameEl.value) || 'model.xml';
@@ -3982,31 +4002,18 @@ function downloadXML(){
 
 /* ===================== LOAD .xml (reverse of buildXML) ===================== */
 function classifyFilterToken(token){
-  // The exported XML only keeps the resolved token, not which picker built it, so this is a
-  // best-effort guess — check the result and fix it up if it's wrong. A single token with no
-  // comma is either a plain nuclide name or a plain half-life band; a comma-joined token is a
-  // set of decay-type pieces, optionally with exactly one half-life piece mixed in (which is
-  // what the automatic exception wizard produces, e.g. "+30y,alpha").
-  if(!token.includes(',') && (/^[A-Za-z]+\d+(_m\d+)?$/.test(token) || /^\d+[A-Za-z]+(_m\d+)?$/.test(token))){
-    return {kind:'nuclide', nuclideName:normalizeNuclide(token)};
-  }
-  const hlPattern = /^([+-])(\d+(?:\.\d+)?)(y|m|d|h)$/i;
+  // The exported XML only keeps the resolved token, not which picker built it,
+  // so this is a best-effort guess — check the result and fix it up if it's wrong.
+  const hl = token.match(/^([+-])(\d+(?:\.\d+)?)(y|m|d|h)$/i);
+  if(hl) return {kind:'halflife', hlCompare:hl[1], hlMagnitude:hl[2], hlUnit:hl[3].toLowerCase()};
+  if(DECAY_TYPES.includes(token)) return {kind:'decaytype', decayTypes:[token]};
+  if(/^[A-Za-z]+\d+(_m\d+)?$/.test(token) || /^\d+[A-Za-z]+(_m\d+)?$/.test(token)) return {kind:'nuclide', nuclideName:normalizeNuclide(token)};
+  // Decay type(s) -- possibly comma-joined for an AND-intersection (e.g. "alpha,beta-"),
+  // which is what a multi-select decay-type filter card produces.
   const parts = token.split(',').map(s=>s.trim()).filter(Boolean);
-  const hlParts = parts.filter(p=>hlPattern.test(p));
-  const restParts = parts.filter(p=>!hlPattern.test(p));
-  if(parts.length===1 && hlParts.length===1){
-    const m = hlParts[0].match(hlPattern);
-    return {kind:'halflife', hlCompare:m[1], hlMagnitude:m[2], hlUnit:m[3].toLowerCase()};
-  }
-  const known = restParts.filter(p=>DECAY_TYPES.includes(p));
-  const custom = restParts.filter(p=>!DECAY_TYPES.includes(p));
-  const base = {kind:'decaytype', decayTypes:known, decayTypeCustom:custom.join(',')};
-  if(hlParts.length===1){
-    const m = hlParts[0].match(hlPattern);
-    base.alsoHalflife = true;
-    base.hlCompare = m[1]; base.hlMagnitude = m[2]; base.hlUnit = m[3].toLowerCase();
-  }
-  return base;
+  const known = parts.filter(p=>DECAY_TYPES.includes(p));
+  const custom = parts.filter(p=>!DECAY_TYPES.includes(p));
+  return {kind:'decaytype', decayTypes:known, decayTypeCustom:custom.join(',')};
 }
 function parseCriteriaEl(critEl, nodeIdByLabelImport){
   const c = {
@@ -5147,7 +5154,7 @@ function chipVariableLabel(value){
 // the base threshold as if it applied to every nuclide.
 function orderCriteriaChipTexts(o){
   if(!o.criteria || !o.criteria.length) return ['no criteria'];
-  const symbol = p => p==='min' ? '\u2265' : p==='max' ? '\u2264' : p;
+  const symbol = p => p==='min' ? '<' : p==='max' ? '>' : p;
   const chips = o.criteria.map(c=>{
     const varLabel = chipVariableLabel(c.variable);
     const val = (c.value!==''&&c.value!==undefined) ? compactValueDisplay(c.value) : '?';
@@ -5162,6 +5169,10 @@ function orderCriteriaChipTexts(o){
 }
 // Lays out short text chips centered on (centerX, startY), wrapping into rows capped at maxRows;
 // returns the SVG markup plus how much vertical space it used.
+// Renders each criterion on its own line, centered on centerX (same axis the order title
+// above it uses) -- but instead of a separate differently-sized pill box per line (which read
+// as a ragged column rather than one cohesive block), there's a single shared backdrop sized
+// to the widest line, so the whole stack reads as one centered mass of text under the title.
 function layoutChipsStacked(chips, centerX, startY, opts){
   const o = Object.assign({chipH:14, rowGap:4, charW:5.1, fontSize:8, maxRows:5,
     fill:'transparent', stroke:cssVar('--amber-dim'), textColor:cssVar('--amber-dim')}, opts||{});
@@ -5288,14 +5299,21 @@ function renderNetworkDiagram(){
       const mx = ((homeBox.x+homeBox.w/2) + (fromBox.x+fromBox.w/2))/2;
       const my = ((homeBox.y+homeBox.h/2) + (fromBox.y+fromBox.h/2))/2;
       const labelWithMag = `${o.label} \u00d7${compactValueDisplay(o.magnitude)}${o.disabled?' (off)':''}`;
+      // With no criteria, the title alone sits centered on the arrow's midpoint (my) -- that's
+      // the baseline "it already worked" case. Once criteria chips are added below it, shift
+      // the whole block (title + chips) up by half the chip stack's height, so the combined
+      // block's vertical center of mass stays on my instead of sliding below it as chips pile up.
+      const chipTexts = orderCriteriaChipTexts(o);
+      const chipsHeight = layoutChipsStacked(chipTexts, mx, 0, {fill:cPanel}).height;
+      const shift = chipsHeight>0 ? chipsHeight/2 : 0;
       // halo text: a thick background-colored stroke painted behind the fill, so it only "cuts"
       // around the glyph shapes instead of slicing the arrow with a hard rectangle.
-      svg += `<text class="order-hit" data-order-id="${o.id}" x="${mx.toFixed(1)}" y="${(my-4).toFixed(1)}" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" font-weight="600" paint-order="stroke" stroke="${cPanel}" stroke-width="5" stroke-linejoin="round" fill="${isSel?cText:orderColor}">${esc(labelWithMag)}</text>`;
+      svg += `<text class="order-hit" data-order-id="${o.id}" x="${mx.toFixed(1)}" y="${(my-4-shift).toFixed(1)}" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" font-weight="600" paint-order="stroke" stroke="${cPanel}" stroke-width="5" stroke-linejoin="round" fill="${isSel?cText:orderColor}">${esc(labelWithMag)}</text>`;
       if(isSel){
         const underlineW = labelWithMag.length*5.6;
-        svg += `<rect x="${(mx-underlineW/2).toFixed(1)}" y="${(my-1).toFixed(1)}" width="${underlineW.toFixed(1)}" height="2" rx="1" fill="${cAmber}" style="pointer-events:none;"/>`;
+        svg += `<rect x="${(mx-underlineW/2).toFixed(1)}" y="${(my-1-shift).toFixed(1)}" width="${underlineW.toFixed(1)}" height="2" rx="1" fill="${cAmber}" style="pointer-events:none;"/>`;
       }
-      const chips = layoutChipsStacked(orderCriteriaChipTexts(o), mx, my+4, {fill:cPanel});
+      const chips = layoutChipsStacked(chipTexts, mx, my+4-shift, {fill:cPanel});
       svg += chips.svg;
     });
   });
@@ -5333,12 +5351,13 @@ function renderNetworkDiagram(){
     const n = p.node;
     const isSel = sel && sel.type==='node' && sel.id===n.id;
     const contents = n.contents||[];
-    const summary = contents.slice(0,3).join(' ') + (contents.length>3 ? ' …' : '');
+    const contentsDisplay = contents.map(t=> String(t).startsWith('@') ? `[${t.slice(1)}]` : t);
+    const summary = contentsDisplay.slice(0,3).join(' ') + (contentsDisplay.length>3 ? ' …' : '');
     svg += `<g>
       <rect class="node-hit" data-node-id="${n.id}" x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" rx="6" fill="${cPanelAlt}" stroke="${isSel?cAmber:cBorder}" stroke-width="${isSel?3:1.5}"/>
       <text x="${p.x+p.w/2}" y="${p.y+30}" text-anchor="middle" fill="${cText}" font-family="IBM Plex Mono" font-size="12" font-weight="600" style="pointer-events:none;">${esc(n.label||'(unlabeled)')}</text>
       <text x="${p.x+p.w/2}" y="${p.y+52}" text-anchor="middle" fill="${cTextDim}" font-family="IBM Plex Mono" font-size="9.5" style="pointer-events:none;">${esc(summary||'(empty)')}</text>
-      <title>${esc(n.label)}\ncontents: ${esc(contents.join(' ')||'(empty)')}\ndrag to move, drag the dot to connect</title>
+      <title>${esc(n.label)}\ncontents: ${esc(contentsDisplay.join(' ')||'(empty)')}\ndrag to move, drag the dot to connect</title>
       <circle class="node-handle-hit" data-node-id="${n.id}" cx="${p.x+p.w}" cy="${p.y+p.h/2}" r="18" fill="transparent"><title>Drag to another node to create an order</title></circle>
       <circle class="node-handle-dot" cx="${p.x+p.w}" cy="${p.y+p.h/2}" r="7" fill="${cAmber}" stroke="${cPanel}" stroke-width="1.5" style="pointer-events:none;"/>
     </g>`;
@@ -5702,16 +5721,34 @@ function networkAddSourceTo(nodeId){
   selectNetworkElement('source', sources[sources.length-1].id);
   renderSources(); // cascades to buildXML -> renderNetworkDiagram
 }
+// Recomputes the full content extent fresh (same math renderNetworkDiagram uses to auto-fit on
+// first load), independent of whatever the on-screen viewBox currently shows -- so exporting
+// while zoomed in or panned still captures the whole diagram, not just the visible slice.
+function computeNetworkFullExtent(){
+  const boxW = 176, boxH = 78;
+  const pos = {};
+  nodes.forEach((n,i)=>{
+    const def = defaultNodePosition(i);
+    pos[n.id] = { x: (n.nx ?? def.nx), y: (n.ny ?? def.ny), w:boxW, h:boxH, node:n };
+  });
+  const b = computeNetworkContentBounds(pos);
+  if(!b) return null;
+  return { x:b.minX, y:b.minY, w:b.maxX-b.minX, h:b.maxY-b.minY };
+}
 function getNetworkSVGString(){
   const svgEl = document.querySelector('#network-diagram svg');
   if(!svgEl) return null;
   const clone = svgEl.cloneNode(true);
   clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
   clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
-  const vb = svgEl.viewBox.baseVal;
-  if(vb && vb.width && vb.height){
-    clone.setAttribute('width', vb.width);
-    clone.setAttribute('height', vb.height);
+  const ext = computeNetworkFullExtent();
+  let x, y, w, h;
+  if(ext){ x=ext.x; y=ext.y; w=ext.w; h=ext.h; }
+  else { const vb = svgEl.viewBox.baseVal; x=vb.x; y=vb.y; w=vb.width; h=vb.height; }
+  if(w && h){
+    clone.setAttribute('viewBox', `${x} ${y} ${w} ${h}`);
+    clone.setAttribute('width', w);
+    clone.setAttribute('height', h);
   }
   // strip interaction-only elements that shouldn't appear in an exported image
   clone.querySelectorAll('.canvas-bg, .node-handle-hit, .node-handle-dot, .group-resize-hit').forEach(el=>el.remove());
@@ -5730,10 +5767,11 @@ function downloadNetworkPNG(){
   const svgStr = getNetworkSVGString();
   const svgEl = document.querySelector('#network-diagram svg');
   if(!svgStr || !svgEl){ alert('Nothing to export yet — add a node first.'); return; }
+  const ext = computeNetworkFullExtent();
   const vb = svgEl.viewBox.baseVal;
   const scale = 2; // export at 2x for a crisper raster image
-  const w = Math.max(1, Math.round((vb.width||800)*scale));
-  const h = Math.max(1, Math.round((vb.height||600)*scale));
+  const w = Math.max(1, Math.round((ext ? ext.w : (vb.width||800))*scale));
+  const h = Math.max(1, Math.round((ext ? ext.h : (vb.height||600))*scale));
   const bgColor = cssVar('--bg');
   const url = URL.createObjectURL(new Blob([svgStr], {type:'image/svg+xml;charset=utf-8'}));
   const img = new Image();
