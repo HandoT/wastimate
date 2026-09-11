@@ -2926,7 +2926,7 @@ function criterionPlainSentence(c, defs, nodes){
     const n = c.targetNode && nodes ? nodes.find(x=>x.id===c.targetNode) : null;
     scope = n ? `node <span class="sv">${esc(n.label)}</span>` : 'the candidate node';
   }
-  let text = `${scope} &middot; <span class="sv">${esc(varLabel)}</span> ${cmp} <span class="sn">${esc(String(val))}</span>`;
+  let text = `${scope} \u00b7 <span class="sv">${esc(varLabel)}</span> ${cmp} <span class="sn">${esc(String(val))}</span>`;
   const filterSumm = criterionFilterSummary(c);
   if(filterSumm){
     const lead = filterSumm.startsWith('except for') ? '' : 'for ';
@@ -3309,7 +3309,7 @@ function toggleOrderExpanded(id){
 }
 function orderListItemHtml(o){
   const expanded = expandedOrders.has(o.id);
-  const summary = stripTags(orderCriteriaSummary(o));
+  const summary = orderShortSummaryText(o);
   return `
     <div class="order-seq-item" data-order-id="${o.id}">
       <span class="order-seq-handle" title="drag to reorder">&#8942;&#8942;</span>
@@ -3323,6 +3323,16 @@ function orderListItemHtml(o){
         ${expanded ? `<div class="criterion-body">${orderFieldsHtml(o)}</div>` : ''}
       </div>
     </div>`;
+}
+// Compact one-line summary for the collapsed row -- just enough to tell orders apart at a
+// glance (where it moves packages from/to, and how many). Criteria are left out here on
+// purpose: they can get long, and the point of this row is a quick scan, not the full detail
+// you get by expanding it.
+function orderShortSummaryText(o){
+  const from = (o.ordernodes||[]).map(nodeLabelById).filter(Boolean).join(', ') || '?';
+  const to = nodeLabelById(o.homenode) || '?';
+  const mag = (o.magnitude!==''&&o.magnitude!==undefined&&o.magnitude!==null) ? compactValueDisplay(o.magnitude) : '?';
+  return `from ${from} to ${to}, magnitude ${mag}`;
 }
 function renderOrderList(){
   const el = document.getElementById('order-sequence-list');
