@@ -2596,6 +2596,17 @@ function updateNuc(id,i,key,val){ packages.find(p=>p.id===id).nuclides[i][key]=v
 function removePackage(id){
   const removed = packages.find(p=>p.id===id);
   packages = packages.filter(p=>p.id!==id);
+  // A deleted package can't stay referenced anywhere -- strip it out of every node's contents
+  // (matching the label*N token format) and clear it from any source using it as a template,
+  // rather than leaving a dangling label that would only surface as an error at export/run time.
+  if(removed && removed.label){
+    nodes.forEach(n=>{
+      n.contents = (n.contents||[]).filter(tok=> String(tok).split('*')[0] !== removed.label);
+    });
+    sources.forEach(s=>{
+      if(s.package === removed.label) s.package = '';
+    });
+  }
   // If that was the last package in its group, the (now-empty) group header needs to disappear
   // too -- that's a structural change the fast single-element removal below can't do, so fall
   // back to a full (still cheap at this point -- one package's worth of work) re-render.
