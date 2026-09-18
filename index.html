@@ -1446,7 +1446,7 @@ let networkRenderScheduled = false;
 let networkViewport = null; // {x, y, w, h}
 let networkViewportLocked = false;
 let networkGroups = []; // {id, x, y, w, h, label, color}
-let universeSettings = { stepsize:'1', stepunit:'a', cores:'1', refdate:'', solver:'cram16', showAdvanced:false, mcTrials:'100', mcSampling:'random', mcSeed:'', mcKeepFiles:false };
+let universeSettings = { stepsize:'1', stepunit:'a', cores:'1', refdate:'', solver:'cram16', showAdvanced:false, mcTrials:'100', mcSampling:'random', mcSeed:'', mcKeepFiles:false, mcMinmaxSigma:'2' };
 
 /* ===================== helpers ===================== */
 function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -1609,18 +1609,27 @@ function modelHasAnyDistribution(){
   return false;
 }
 function monteCarloSettingsHtml(loc){
+  const isMinmax = universeSettings.mcSampling === 'minmax';
   return `
     <div class="field-grid">
+      ${isMinmax ? `
+      <div class="field"><label style="white-space:nowrap;">Number of simulations</label>
+        <input type="text" value="2 (fixed)" disabled style="opacity:.6;">
+      </div>` : `
       <div class="field"><label style="white-space:nowrap;">Number of simulations <span class="help-bubble" tabindex="0">?<span class="tip">How many Monte Carlo trials to run. Each trial samples a fresh value from every distribution in the model and runs independently.</span></span></label>
-        <input type="number" min="1" id="mc-trials-${loc}" value="${esc(universeSettings.mcTrials)}" oninput="updateUniverseSettingSilent('mcTrials',this.value,'${loc}')" onblur="updateUniverseSetting('mcTrials',this.value)"></div>
-      <div class="field"><label>Sampling method <span class="help-bubble" tabindex="0">?<span class="tip">Latin Hypercube spreads samples more evenly across each distribution's range, giving better coverage with fewer trials than plain random sampling.</span></span></label>
-        <select id="mc-sampling-${loc}" onchange="updateUniverseSetting('mcSampling',this.value)">
+        <input type="number" min="1" id="mc-trials-${loc}" value="${esc(universeSettings.mcTrials)}" oninput="updateUniverseSettingSilent('mcTrials',this.value,'${loc}')" onblur="updateUniverseSetting('mcTrials',this.value)"></div>`}
+      <div class="field"><label>Sampling method <span class="help-bubble" tabindex="0">?<span class="tip">Latin Hypercube spreads samples more evenly across each distribution's range, giving better coverage with fewer trials than plain random sampling. Min/Max always runs exactly two trials: one with every distributed value at its low bound, one with every value at its high bound, moving together — a worst-case/best-case pair, not a statistical ensemble (and not the same as picking Latin Hypercube with 2 trials, which samples each value's bound independently rather than in lockstep).</span></span></label>
+        <select id="mc-sampling-${loc}" onchange="updateUniverseSetting('mcSampling',this.value); renderMonteCarloSettings();">
           <option value="random" ${universeSettings.mcSampling==='random'?'selected':''}>Random</option>
           <option value="latin_hypercube" ${universeSettings.mcSampling==='latin_hypercube'?'selected':''}>Latin Hypercube</option>
+          <option value="minmax" ${isMinmax?'selected':''}>Min/Max (2 runs)</option>
         </select>
       </div>
       <div class="field"><label>Random seed <span class="help-bubble" tabindex="0">?<span class="tip">Set this to make the same set of trials reproducible across runs. Leave blank for a different sample each time.</span></span></label>
         <input type="number" id="mc-seed-${loc}" placeholder="random" value="${esc(universeSettings.mcSeed)}" oninput="updateUniverseSettingSilent('mcSeed',this.value,'${loc}')" onblur="updateUniverseSetting('mcSeed',this.value)"></div>
+      ${isMinmax ? `
+      <div class="field"><label>Std. dev. multiplier <span class="help-bubble" tabindex="0">?<span class="tip">Normal and log-normal values have no natural min/max the way Uniform/Triangular/Extremal do — this defines their "extreme" as this many standard deviations out from the mean (2 ≈ a 95% range, 3 ≈ 99.7%). One model-wide setting, applied to every normal/log-normal value.</span></span></label>
+        <input type="number" min="0" step="0.1" id="mc-minmax-sigma-${loc}" value="${esc(universeSettings.mcMinmaxSigma)}" oninput="updateUniverseSettingSilent('mcMinmaxSigma',this.value,'${loc}')" onblur="updateUniverseSetting('mcMinmaxSigma',this.value)"></div>` : ''}
     </div>
     <div class="field checkbox" style="margin-top:10px;white-space:nowrap;"><input type="checkbox" id="mc-keep-${loc}" ${universeSettings.mcKeepFiles?'checked':''} onchange="updateUniverseSetting('mcKeepFiles',this.checked)"><label for="mc-keep-${loc}">Keep individual trial files</label>${help('By default, run_monte_carlo deletes each trial\'s own results/state files once everything is combined into the one aggregated file. Check this to keep them around too.')}</div>`;
 }
@@ -4095,7 +4104,7 @@ function buildXML(){
   const cores = universeSettings.cores || 1;
   const hasDist = modelHasAnyDistribution();
   const mcAttrs = hasDist
-    ? ` mc_trials="${xmlEscAttr(universeSettings.mcTrials||100)}" mc_sampling="${xmlEscAttr(universeSettings.mcSampling||'random')}"${universeSettings.mcSeed ? ` mc_seed="${xmlEscAttr(universeSettings.mcSeed)}"` : ''}${universeSettings.mcKeepFiles ? ` mc_keep_files="true"` : ''}`
+    ? ` mc_trials="${xmlEscAttr(universeSettings.mcTrials||100)}" mc_sampling="${xmlEscAttr(universeSettings.mcSampling||'random')}"${universeSettings.mcSeed ? ` mc_seed="${xmlEscAttr(universeSettings.mcSeed)}"` : ''}${universeSettings.mcKeepFiles ? ` mc_keep_files="true"` : ''}${universeSettings.mcSampling==='minmax' ? ` mc_minmax_sigma="${xmlEscAttr(universeSettings.mcMinmaxSigma||2)}"` : ''}`
     : '';
   lines.push(`  <universe num_of_cores="${xmlEscAttr(cores)}" step_size="${xmlEscAttr(stepsize)}" step_unit="${xmlEscAttr(stepunit)}" solver="${xmlEscAttr(universeSettings.solver||'cram16')}"${mcAttrs}>`);
   const anyDisabled = orders.some(o=>o.disabled) || sources.some(s=>s.disabled);
@@ -4333,7 +4342,7 @@ function importModelXML(xmlText){
 
   // actions (inside <universe>)
   const universeEl = root.querySelector(':scope > universe');
-  let uCores='1', uStepSize='1', uStepUnit='a', uSolver='cram16', uMcTrials='100', uMcSampling='random', uMcSeed='', uMcKeepFiles=false;
+  let uCores='1', uStepSize='1', uStepUnit='a', uSolver='cram16', uMcTrials='100', uMcSampling='random', uMcSeed='', uMcKeepFiles=false, uMcMinmaxSigma='2';
   if(universeEl){
     uCores = universeEl.getAttribute('num_of_cores') || '1';
     uStepSize = universeEl.getAttribute('step_size') || '1';
@@ -4343,6 +4352,7 @@ function importModelXML(xmlText){
     uMcSampling = universeEl.getAttribute('mc_sampling') || 'random';
     uMcSeed = universeEl.getAttribute('mc_seed') || '';
     uMcKeepFiles = (universeEl.getAttribute('mc_keep_files')||'').toLowerCase()==='true';
+    uMcMinmaxSigma = universeEl.getAttribute('mc_minmax_sigma') || '2';
     // The universe element's own direct text (before its first child <action>) is a shared
     // include-list across nodes/orders/sources -- mirrors ElementTree's .text (only text before
     // the first child element), not the DOM's textContent (which would also pick up whitespace
@@ -4419,6 +4429,7 @@ function importModelXML(xmlText){
   universeSettings.mcSampling = uMcSampling;
   universeSettings.mcSeed = uMcSeed;
   universeSettings.mcKeepFiles = uMcKeepFiles;
+  universeSettings.mcMinmaxSigma = uMcMinmaxSigma;
   renderUniverseSettings();
 
   renderPackages(); renderNodes(); renderSources(); renderOrders(); renderActions();
