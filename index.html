@@ -1093,21 +1093,9 @@
               <div class="field checkbox" style="margin-top:10px;">
                 <input type="checkbox" id="pkg-excel-uncertainty-enable" onchange="toggleExcelUncertaintyFields()">
                 <label for="pkg-excel-uncertainty-enable">Apply uncertainty to imported nuclide values</label>
-                <span class="help-bubble" tabindex="0">?<span class="tip">Converts every imported nuclide value into a distribution, using the deterministic imported value as the mean &mdash; a quick way to set up a Monte Carlo baseline without hand-editing every nuclide afterward. Values that are zero or negative are left as-is, since a distribution needs a positive mean here.</span></span>
+                <span class="help-bubble" tabindex="0">?<span class="tip">Converts every imported nuclide value into a distribution, using the deterministic imported value as the mean (or midpoint, for Extremal) &mdash; a quick way to set up a Monte Carlo baseline without hand-editing every nuclide afterward. Values that are zero or negative are left as-is, since a distribution needs a positive mean here.</span></span>
               </div>
-              <div class="field-grid" id="pkg-excel-uncertainty-fields" style="display:none;margin-top:8px;">
-                <div class="field"><label>Distribution type</label>
-                  <select id="pkg-excel-uncertainty-type">
-                    <option value="normal">Normal</option>
-                    <option value="uniform">Uniform</option>
-                    <option value="lognormal">Log-normal</option>
-                    <option value="triangular">Triangular</option>
-                  </select>
-                </div>
-                <div class="field"><label>Relative error (%) <span class="help-bubble" tabindex="0">?<span class="tip">e.g. 10 means the distribution spans roughly &plusmn;10% around each imported value.</span></span></label>
-                  <input type="number" id="pkg-excel-uncertainty-relerr" value="10" min="0" step="1">
-                </div>
-              </div>
+              <div class="field-grid" id="pkg-excel-uncertainty-fields" style="display:none;margin-top:8px;"></div>
               <button class="ghost small" style="margin-top:10px;" onclick="copyPackageLabels(this)">copy all package labels</button>
             </div>
           </div>
@@ -1139,7 +1127,7 @@
               </div>
             </div>
             <div>
-              <div class="subblock" style="margin-bottom:14px;">
+              <div class="subblock" id="order-sequence-panel" style="margin-bottom:14px;display:none;">
                 <div id="order-sequence-list" class="order-seq-list"></div>
               </div>
               <div id="network-inspector" class="subblock"></div>
@@ -1157,6 +1145,19 @@
           <div class="subblock" id="mc-settings-block" style="display:none;">
             <div class="subblock-title">Monte Carlo <span class="help-bubble" tabindex="0">?<span class="tip">Appears automatically once any field in the model is set to a distribution instead of a fixed value. Runs the model many times, sampling fresh values each trial, and saves each trial's results as its own file rather than one aggregated file.</span></span></div>
             <div id="mc-settings-fields"></div>
+          </div>
+
+          <div class="subblock">
+            <div class="field checkbox">
+              <input type="checkbox" id="global-uncertainty-enable" onchange="toggleGlobalUncertaintyBlock()">
+              <label for="global-uncertainty-enable">Bulk-apply uncertainty to packages</label>
+              <span class="help-bubble" tabindex="0">?<span class="tip">Converts every plain (non-distribution) nuclide value across every package into a distribution in one go, using its current value as the mean or midpoint — the same conversion the Excel importer can do for a fresh import, just applicable any time to whatever packages already exist.</span></span>
+            </div>
+            <div id="global-uncertainty-fields" style="display:none;margin-top:10px;">
+              <div class="field-grid" id="global-uncertainty-field-grid"></div>
+              <button class="ghost small" style="margin-top:8px;" onclick="applyGlobalUncertaintyToAllPackages()">Apply to all packages now</button>
+              <p class="empty-hint" id="global-uncertainty-status" style="margin-top:8px;"></p>
+            </div>
           </div>
 
           <div class="subblock">
@@ -1462,7 +1463,8 @@ const DISTRIBUTION_TYPES = {
   normal:     { label: 'Normal',     params: [{key:'mean', label:'Mean'}, {key:'std', label:'Std. dev.'}] },
   uniform:    { label: 'Uniform',    params: [{key:'low', label:'Low'}, {key:'high', label:'High'}] },
   lognormal:  { label: 'Log-normal', params: [{key:'mu', label:'Mu (log-mean)'}, {key:'sigma', label:'Sigma (log-std)'}] },
-  triangular: { label: 'Triangular', params: [{key:'low', label:'Low'}, {key:'mode', label:'Mode'}, {key:'high', label:'High'}] }
+  triangular: { label: 'Triangular', params: [{key:'low', label:'Low'}, {key:'mode', label:'Mode'}, {key:'high', label:'High'}] },
+  extremal:   { label: 'Extremal (fixed min/max)', params: [{key:'min', label:'Min'}, {key:'max', label:'Max'}] }
 };
 function parseDistributionString(str){
   const m = String(str??'').trim().match(/^([a-zA-Z_]+)\s*\(([^)]*)\)\s*$/);
@@ -2206,23 +2208,69 @@ function toggleExcelUncertaintyFields(){
   const enabled = document.getElementById('pkg-excel-uncertainty-enable').checked;
   document.getElementById('pkg-excel-uncertainty-fields').style.display = enabled ? '' : 'none';
 }
-// Converts a deterministic value into a distribution string using that value as the mean and
-// a relative error (as a percentage of the mean) to size the spread. For lognormal, the
+// Shared by the Excel importer's "apply uncertainty" block and the global-settings one --
+// same fields either way, just under different id prefixes so the two copies never collide.
+// Extremal (fixed min/max, no randomness beyond which end a given trial happens to land on)
+// takes an asymmetric min%/max% pair instead of a single symmetric relative error, since a
+// bounding range usually isn't symmetric around the nominal value.
+function uncertaintyFieldsHtml(prefix){
+  return `
+    <div class="field"><label>Distribution type</label>
+      <select id="${prefix}-type" onchange="toggleUncertaintyModeFields('${prefix}')">
+        <option value="normal">Normal</option>
+        <option value="uniform">Uniform</option>
+        <option value="lognormal">Log-normal</option>
+        <option value="triangular">Triangular</option>
+        <option value="extremal">Extremal (fixed min/max)</option>
+      </select>
+    </div>
+    <div class="field" id="${prefix}-relerr-field"><label>Relative error (%) ${help('e.g. 10 means the distribution spans roughly ±10% around each value.')}</label>
+      <input type="number" id="${prefix}-relerr" value="10" min="0" step="1">
+    </div>
+    <div class="field" id="${prefix}-minpct-field" style="display:none;"><label>Min (%) ${help('e.g. -10 for 10% below each value. Can be asymmetric with Max below — the two don\'t have to match.')}</label>
+      <input type="number" id="${prefix}-minpct" value="-10" step="1">
+    </div>
+    <div class="field" id="${prefix}-maxpct-field" style="display:none;"><label>Max (%)</label>
+      <input type="number" id="${prefix}-maxpct" value="10" step="1">
+    </div>`;
+}
+function toggleUncertaintyModeFields(prefix){
+  const type = document.getElementById(`${prefix}-type`).value;
+  const isExtremal = type === 'extremal';
+  document.getElementById(`${prefix}-relerr-field`).style.display = isExtremal ? 'none' : '';
+  document.getElementById(`${prefix}-minpct-field`).style.display = isExtremal ? '' : 'none';
+  document.getElementById(`${prefix}-maxpct-field`).style.display = isExtremal ? '' : 'none';
+}
+function readUncertaintyConfig(prefix){
+  return {
+    distType: document.getElementById(`${prefix}-type`).value,
+    relErrPercent: parseFloat(document.getElementById(`${prefix}-relerr`).value) || 0,
+    minPercent: parseFloat(document.getElementById(`${prefix}-minpct`).value) || 0,
+    maxPercent: parseFloat(document.getElementById(`${prefix}-maxpct`).value) || 0,
+  };
+}
+// Converts a deterministic value into a distribution string using that value as the mean (or,
+// for Extremal, the midpoint) and either a relative error (percentage of the mean, symmetric)
+// or an explicit min%/max% pair (can be asymmetric) to size the spread. For lognormal, the
 // conversion solves for the underlying normal's mu/sigma via the standard method-of-moments
 // relationship so the LOGNORMAL distribution's own mean (not the underlying normal's) lands
-// on the target value, matching the same "mean + relative error" mental model as the other
-// three types rather than requiring the underlying-normal parameters directly.
-function buildDistributionFromMeanAndRelativeError(mean, relErrorPercent, distType){
+// on the target value, matching the same "mean + relative error" mental model as the others.
+function buildDistributionFromMeanAndConfig(mean, cfg){
   const m = Number(mean);
   if(!(m > 0) || !Number.isFinite(m)) return String(mean); // zero/negative/non-numeric -- leave as-is, a distribution needs a positive mean here
-  const r = Math.max(0, Number(relErrorPercent) || 0) / 100;
-  if(distType === 'uniform'){
+  if(cfg.distType === 'extremal'){
+    const lo = m * (1 + cfg.minPercent/100);
+    const hi = m * (1 + cfg.maxPercent/100);
+    return `extremal(${Math.min(lo,hi)}, ${Math.max(lo,hi)})`;
+  }
+  const r = Math.max(0, cfg.relErrPercent) / 100;
+  if(cfg.distType === 'uniform'){
     return `uniform(${m*(1-r)}, ${m*(1+r)})`;
   }
-  if(distType === 'triangular'){
+  if(cfg.distType === 'triangular'){
     return `triangular(${m*(1-r)}, ${m}, ${m*(1+r)})`;
   }
-  if(distType === 'lognormal'){
+  if(cfg.distType === 'lognormal'){
     const sigma = Math.sqrt(Math.log(1 + r*r));
     const mu = Math.log(m) - (sigma*sigma)/2;
     return `lognormal(${mu}, ${sigma})`;
@@ -2230,13 +2278,37 @@ function buildDistributionFromMeanAndRelativeError(mean, relErrorPercent, distTy
   // normal
   return `normal(${m}, ${m*r})`;
 }
+function toggleGlobalUncertaintyBlock(){
+  const enabled = document.getElementById('global-uncertainty-enable').checked;
+  document.getElementById('global-uncertainty-fields').style.display = enabled ? '' : 'none';
+}
+// Applies the chosen distribution/extremal config to every package's nuclide values in one
+// pass, in place -- for retrofitting uncertainty onto packages that already exist (manually
+// entered, or imported earlier without it), rather than only being available at Excel-import
+// time. Skips anything already a distribution string, so re-running this doesn't compound.
+function applyGlobalUncertaintyToAllPackages(){
+  const cfg = readUncertaintyConfig('global-uncertainty');
+  let count = 0;
+  packages.forEach(p=>{
+    (p.nuclides||[]).forEach(n=>{
+      if(n.value!=='' && n.value!==undefined && n.value!==null && !isDistributionString(n.value) && Number(n.value) > 0){
+        n.value = buildDistributionFromMeanAndConfig(n.value, cfg);
+        count++;
+      }
+    });
+  });
+  renderPackages();
+  const statusEl = document.getElementById('global-uncertainty-status');
+  if(statusEl) statusEl.textContent = count
+    ? `Applied to ${count} nuclide value${count===1?'':'s'} across ${packages.length} package${packages.length===1?'':'s'}.`
+    : 'Nothing to convert — every nuclide value is already a distribution, zero, or blank.';
+}
 function commitExcelPackages(){
   const overrideRadioactiveSel = document.getElementById('pkg-excel-override-radioactive').value;
   const overrideDecayChainSel = document.getElementById('pkg-excel-override-decay_chain').value;
   const groupOverride = document.getElementById('pkg-excel-group-override').value.trim();
   const applyUncertainty = document.getElementById('pkg-excel-uncertainty-enable').checked;
-  const uncertaintyType = document.getElementById('pkg-excel-uncertainty-type').value;
-  const uncertaintyRelErr = document.getElementById('pkg-excel-uncertainty-relerr').value;
+  const uncertaintyCfg = applyUncertainty ? readUncertaintyConfig('pkg-excel-uncertainty') : null;
   excelParsedRows.forEach((r,i)=>{
     if(!excelSelectedRows.has(i) || r.label.startsWith('(sheet')) return;
     packages.push({
@@ -2247,7 +2319,7 @@ function commitExcelPackages(){
       group: groupOverride || r.group || '',
       nuclides: Object.entries(r.inventory).map(([name,value])=>({
         name,
-        value: applyUncertainty ? buildDistributionFromMeanAndRelativeError(value, uncertaintyRelErr, uncertaintyType) : value
+        value: uncertaintyCfg ? buildDistributionFromMeanAndConfig(value, uncertaintyCfg) : value
       }))
     });
   });
@@ -2706,7 +2778,7 @@ function nodeCardHtml(n){
         <div class="field"><label>Label</label><input type="text" value="${esc(n.label)}" onfocus="rememberLabelBeforeEdit('node','${n.id}',this.value)" oninput="updateNodeSilent('${n.id}','label',this.value)" onblur="updateNode('${n.id}','label',this.value)"></div>
         <div class="field span-full"><label>Initial contents (package labels, optionally label*N &mdash; drag corner to resize) ${help('Which packages start out in this node when the simulation begins. Use label*N to add N copies of the same package at once.')}</label>
           <textarea class="resize-v" rows="2" placeholder="e.g. Package1 Package2*3"
-            oninput="updateNode('${n.id}','contents',this.value.split(/\\s+/).filter(Boolean))"
+            oninput="updateNodeSilent('${n.id}','contents',this.value.split(/\\s+/).filter(Boolean))"
             onblur="renderNodes()">${esc((n.contents||[]).join(' '))}</textarea>
         </div>
       </div>
@@ -2870,7 +2942,7 @@ function addOrder(){
     direction:'old', mixratio:0.5, crumbs:false, rate:0, showAdvanced:false, disabled:false,
     criteria:[], conditions:[], packageOut:'', packageMass:'', sortNode:''};
   orders.push(o);
-  expandedOrders.add(o.id);
+  expandedOrders = new Set([o.id]);
   renderOrders();
 }
 
@@ -3303,8 +3375,12 @@ function renderOrders(){
 // preview of it. Clicking an order's arrow on the diagram expands the same row here too, so
 // either entry point lands you in the same place. ----
 let expandedOrders = new Set();
+// Accordion, not independent per-row toggles: only the selected order is ever open, same as
+// the node/source inspector only ever shows one thing at a time (nothing, until something's
+// selected). Opening one closes whatever else was open.
 function toggleOrderExpanded(id){
-  if(expandedOrders.has(id)) expandedOrders.delete(id); else expandedOrders.add(id);
+  const wasOpen = expandedOrders.has(id);
+  expandedOrders = wasOpen ? new Set() : new Set([id]);
   renderOrderList();
 }
 function orderListItemHtml(o){
@@ -3335,8 +3411,16 @@ function orderShortSummaryText(o){
   return `from ${from} to ${to}, magnitude ${mag}`;
 }
 function renderOrderList(){
+  const panel = document.getElementById('order-sequence-panel');
   const el = document.getElementById('order-sequence-list');
-  if(!el) return;
+  if(!el || !panel) return;
+  // Reserved, always-on space for this was exactly the clutter that wasn't wanted -- so the
+  // whole panel, "no orders yet" placeholder included, only exists at all once an order is
+  // actually selected (from the diagram, or by creating one), same as the node/source
+  // inspector showing nothing until something is selected.
+  const hasOrderSelected = networkSelection && networkSelection.type==='order';
+  panel.style.display = hasOrderSelected ? '' : 'none';
+  if(!hasOrderSelected) return;
   el.innerHTML = orders.length
     ? orders.map(o=>orderListItemHtml(o)).join('')
     : '<p class="empty-hint">No orders yet — drag between two nodes on the diagram to create one.</p>';
@@ -3621,7 +3705,7 @@ function actionCardHtml(a, i, loc){
     let body = '';
     let extra = '';
     if(a.type==='progress_time'){
-      body = `<div class="field"><label>Timesteps ${help('How many step units to advance the simulation by (see Step size/unit above).')}</label><input type="number" value="${esc(a.steps)}" oninput="updateAction('${a.id}','steps',this.value)"></div>`;
+      body = `<div class="field"><label>Timesteps ${help('How many step units to advance the simulation by (see Step size/unit above).')}</label><input type="number" value="${esc(a.steps)}" oninput="updateActionSilent('${a.id}','steps',this.value)" onblur="updateAction('${a.id}','steps',this.value)"></div>`;
     } else if(a.type==='add_order' || a.type==='remove_order'){
       body = `<div class="field"><label>Order ${help(a.type==='add_order' ? 'Re-enables an order that is currently inactive (e.g. was disabled earlier with remove_order), or activates one not running yet.' : 'Deactivates this order from this point onward, without deleting it — use add_order later to bring it back.')}</label>
         <select onchange="updateAction('${a.id}','orderLabel',this.value)"><option value=""></option>${optionList(orders.map(o=>o.label).filter(Boolean), a.orderLabel)}</select>
@@ -3637,7 +3721,7 @@ function actionCardHtml(a, i, loc){
         <div class="field"><label>Filename ${help('Writes a JSON file with a time series of each selected variable for each selected node/package. Use a .json extension — Monte Carlo runs rely on it to find and aggregate each trial\'s output.')}</label><input type="text" value="${esc(a.filename)}" oninput="updateActionSilent('${a.id}','filename',this.value)" onblur="updateAction('${a.id}','filename',this.value)"></div>
         <div class="field checkbox"><input type="checkbox" id="na-${loc}-${a.id}" ${a.nodesAll?'checked':''} onchange="updateAction('${a.id}','nodesAll',this.checked)"><label for="na-${loc}-${a.id}">all nodes</label></div>
         <div class="field checkbox"><input type="checkbox" id="pa-${loc}-${a.id}" ${a.packagesAll?'checked':''} onchange="updateAction('${a.id}','packagesAll',this.checked)"><label for="pa-${loc}-${a.id}">all packages</label></div>
-        <div class="field span2"><label>Times (blank = full history) ${help('Optional list of specific times to report, instead of every saved timestep.')}</label><input type="text" value="${esc(a.times)}" oninput="updateAction('${a.id}','times',this.value)"></div>
+        <div class="field span2"><label>Times (blank = full history) ${help('Optional list of specific times to report, instead of every saved timestep.')}</label><input type="text" value="${esc(a.times)}" oninput="updateActionSilent('${a.id}','times',this.value)" onblur="updateAction('${a.id}','times',this.value)"></div>
       `;
       extra = `
         <div class="subblock">
@@ -3715,14 +3799,14 @@ function actionCardHtml(a, i, loc){
             ${['a','m','d','h','s'].map(u=>`<option value="${u}" ${a.timeunit===u?'selected':''}>${u}</option>`).join('')}
           </select>
         </div>
-        <div class="field narrow"><label>Storage rows ${help('The physical storage grid dimensions — rows x cols, repeated across the depth layers below.')}</label><input type="number" min="1" value="${esc(a.sizeRows)}" oninput="updateAction('${a.id}','sizeRows',this.value)"></div>
-        <div class="field narrow"><label>Storage cols</label><input type="number" min="1" value="${esc(a.sizeCols)}" oninput="updateAction('${a.id}','sizeCols',this.value)"></div>
-        <div class="field narrow"><label>Storage depth</label><input type="number" min="1" value="${esc(a.sizeDepth)}" oninput="updateAction('${a.id}','sizeDepth',this.value)"></div>
-        <div class="field span2"><label>Weights (optional, one per variable) ${help('How strongly each selected variable influences the packing decision, in the same order as the variables below.')}</label><input type="text" value="${esc(a.weightsText)}" oninput="updateAction('${a.id}','weightsText',this.value)"></div>
-        <div class="field span2"><label>Functions (optional, one per variable) ${help('An optional transform applied to each variable before weighting, e.g. log.')}</label><input type="text" value="${esc(a.functionsText)}" oninput="updateAction('${a.id}','functionsText',this.value)"></div>
-        <div class="field"><label>Optimization (1/-1 per variable) ${help('1 to spread high values apart, -1 to cluster them together, per variable.')}</label><input type="text" value="${esc(a.optimizationText)}" oninput="updateAction('${a.id}','optimizationText',this.value)"></div>
-        <div class="field"><label>Indifference (optional)</label><input type="text" value="${esc(a.indifferenceText)}" oninput="updateAction('${a.id}','indifferenceText',this.value)"></div>
-        <div class="field"><label>Preference (optional)</label><input type="text" value="${esc(a.preferenceText)}" oninput="updateAction('${a.id}','preferenceText',this.value)"></div>
+        <div class="field narrow"><label>Storage rows ${help('The physical storage grid dimensions — rows x cols, repeated across the depth layers below.')}</label><input type="number" min="1" value="${esc(a.sizeRows)}" oninput="updateActionSilent('${a.id}','sizeRows',this.value)" onblur="updateAction('${a.id}','sizeRows',this.value)"></div>
+        <div class="field narrow"><label>Storage cols</label><input type="number" min="1" value="${esc(a.sizeCols)}" oninput="updateActionSilent('${a.id}','sizeCols',this.value)" onblur="updateAction('${a.id}','sizeCols',this.value)"></div>
+        <div class="field narrow"><label>Storage depth</label><input type="number" min="1" value="${esc(a.sizeDepth)}" oninput="updateActionSilent('${a.id}','sizeDepth',this.value)" onblur="updateAction('${a.id}','sizeDepth',this.value)"></div>
+        <div class="field span2"><label>Weights (optional, one per variable) ${help('How strongly each selected variable influences the packing decision, in the same order as the variables below.')}</label><input type="text" value="${esc(a.weightsText)}" oninput="updateActionSilent('${a.id}','weightsText',this.value)" onblur="updateAction('${a.id}','weightsText',this.value)"></div>
+        <div class="field span2"><label>Functions (optional, one per variable) ${help('An optional transform applied to each variable before weighting, e.g. log.')}</label><input type="text" value="${esc(a.functionsText)}" oninput="updateActionSilent('${a.id}','functionsText',this.value)" onblur="updateAction('${a.id}','functionsText',this.value)"></div>
+        <div class="field"><label>Optimization (1/-1 per variable) ${help('1 to spread high values apart, -1 to cluster them together, per variable.')}</label><input type="text" value="${esc(a.optimizationText)}" oninput="updateActionSilent('${a.id}','optimizationText',this.value)" onblur="updateAction('${a.id}','optimizationText',this.value)"></div>
+        <div class="field"><label>Indifference (optional)</label><input type="text" value="${esc(a.indifferenceText)}" oninput="updateActionSilent('${a.id}','indifferenceText',this.value)" onblur="updateAction('${a.id}','indifferenceText',this.value)"></div>
+        <div class="field"><label>Preference (optional)</label><input type="text" value="${esc(a.preferenceText)}" oninput="updateActionSilent('${a.id}','preferenceText',this.value)" onblur="updateAction('${a.id}','preferenceText',this.value)"></div>
       `;
       extra = `
         <div class="subblock">
@@ -3739,18 +3823,18 @@ function actionCardHtml(a, i, loc){
       body = `
         <div class="field"><label>Filename ${help('Where the resulting grouped-package summary spreadsheet gets written.')}</label><input type="text" value="${esc(a.filename)}" oninput="updateActionSilent('${a.id}','filename',this.value)" onblur="updateAction('${a.id}','filename',this.value)"></div>
         <div class="field"><label>Node ${help('Which node to pull packages from and group.')}</label><select onchange="updateAction('${a.id}','node',this.value)"><option value=""></option>${optionList(nodeLabels(), a.node)}</select></div>
-        <div class="field"><label>Group size ${help('How many packages get combined into each group.')}</label><input type="number" min="1" value="${esc(a.size)}" oninput="updateAction('${a.id}','size',this.value)"></div>
+        <div class="field"><label>Group size ${help('How many packages get combined into each group.')}</label><input type="number" min="1" value="${esc(a.size)}" oninput="updateActionSilent('${a.id}','size',this.value)" onblur="updateAction('${a.id}','size',this.value)"></div>
         <div class="field checkbox"><input type="checkbox" id="srt-${loc}-${a.id}" ${a.sort?'checked':''} onchange="updateAction('${a.id}','sort',this.checked)"><label for="srt-${loc}-${a.id}">sort node in place</label>${help('If checked, the node contents are physically reordered by this grouping, not just reported.')}</div>
         <div class="field"><label>Timeunit</label>
           <select onchange="updateAction('${a.id}','timeunit',this.value)">
             ${['a','m','d','h','s'].map(u=>`<option value="${u}" ${a.timeunit===u?'selected':''}>${u}</option>`).join('')}
           </select>
         </div>
-        <div class="field span2"><label>Weights (optional, one per variable)</label><input type="text" value="${esc(a.weightsText)}" oninput="updateAction('${a.id}','weightsText',this.value)"></div>
-        <div class="field span2"><label>Functions (optional, one per variable)</label><input type="text" value="${esc(a.functionsText)}" oninput="updateAction('${a.id}','functionsText',this.value)"></div>
-        <div class="field"><label>Optimization (1/-1 per variable)</label><input type="text" value="${esc(a.optimizationText)}" oninput="updateAction('${a.id}','optimizationText',this.value)"></div>
-        <div class="field"><label>Indifference (optional)</label><input type="text" value="${esc(a.indifferenceText)}" oninput="updateAction('${a.id}','indifferenceText',this.value)"></div>
-        <div class="field"><label>Preference (optional)</label><input type="text" value="${esc(a.preferenceText)}" oninput="updateAction('${a.id}','preferenceText',this.value)"></div>
+        <div class="field span2"><label>Weights (optional, one per variable)</label><input type="text" value="${esc(a.weightsText)}" oninput="updateActionSilent('${a.id}','weightsText',this.value)" onblur="updateAction('${a.id}','weightsText',this.value)"></div>
+        <div class="field span2"><label>Functions (optional, one per variable)</label><input type="text" value="${esc(a.functionsText)}" oninput="updateActionSilent('${a.id}','functionsText',this.value)" onblur="updateAction('${a.id}','functionsText',this.value)"></div>
+        <div class="field"><label>Optimization (1/-1 per variable)</label><input type="text" value="${esc(a.optimizationText)}" oninput="updateActionSilent('${a.id}','optimizationText',this.value)" onblur="updateAction('${a.id}','optimizationText',this.value)"></div>
+        <div class="field"><label>Indifference (optional)</label><input type="text" value="${esc(a.indifferenceText)}" oninput="updateActionSilent('${a.id}','indifferenceText',this.value)" onblur="updateAction('${a.id}','indifferenceText',this.value)"></div>
+        <div class="field"><label>Preference (optional)</label><input type="text" value="${esc(a.preferenceText)}" oninput="updateActionSilent('${a.id}','preferenceText',this.value)" onblur="updateAction('${a.id}','preferenceText',this.value)"></div>
       `;
       extra = `
         <div class="subblock">
@@ -4369,6 +4453,10 @@ handleXmlFileLoad('xml-load-input-network');
 // clean slate — nothing pre-added; this just renders the empty state for every section
 renderUniverseSettings();
 renderPackages();
+// these two live in static HTML (not a JS-rendered template), so their field markup has to be
+// populated once here rather than via a template-literal expression that would never evaluate
+document.getElementById('pkg-excel-uncertainty-fields').innerHTML = uncertaintyFieldsHtml('pkg-excel-uncertainty');
+document.getElementById('global-uncertainty-field-grid').innerHTML = uncertaintyFieldsHtml('global-uncertainty');
 
 /* ===================== VISUALIZER ===================== */
 const dropzone = document.getElementById('dropzone');
@@ -5474,7 +5562,12 @@ function renderNetworkDiagram(){
     const isSel = sel && sel.type==='node' && sel.id===n.id;
     const contents = n.contents||[];
     const contentsDisplay = contents.map(t=> String(t).startsWith('@') ? `[${t.slice(1)}]` : t);
-    const summary = contentsDisplay.slice(0,3).join(' ') + (contentsDisplay.length>3 ? ' …' : '');
+    // SVG text doesn't wrap or clip to its box on its own -- a long package/group label here
+    // (group names especially, since they're free text) would otherwise run straight past the
+    // node's edges instead of staying inside it. Truncate to what actually fits p.w first.
+    const maxSummaryChars = Math.max(6, Math.floor((p.w - 14) / 5.6));
+    let summary = contentsDisplay.slice(0,3).join(' ') + (contentsDisplay.length>3 ? ' \u2026' : '');
+    if(summary.length > maxSummaryChars) summary = summary.slice(0, maxSummaryChars-1) + '\u2026';
     svg += `<g>
       <rect class="node-hit" data-node-id="${n.id}" x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" rx="6" fill="${cPanelAlt}" stroke="${isSel?cAmber:cBorder}" stroke-width="${isSel?3:1.5}"/>
       <text x="${p.x+p.w/2}" y="${p.y+30}" text-anchor="middle" fill="${cText}" font-family="IBM Plex Mono" font-size="12" font-weight="600" style="pointer-events:none;">${esc(n.label||'(unlabeled)')}</text>
@@ -5711,7 +5804,7 @@ function networkAddOrder(){
     criteria:[], conditions:[], packageOut:'', packageMass:'', sortNode:''};
   orders.push(o);
   networkSelection = {type:'order', id:o.id};
-  expandedOrders.add(o.id);
+  expandedOrders = new Set([o.id]);
   renderOrders();
   renderNetworkDiagram();
   renderNetworkInspector();
@@ -5735,7 +5828,7 @@ function removeGroup(id){
 function updateGroup(id, key, val){
   const g = networkGroups.find(x=>x.id===id);
   if(g) g[key] = val;
-  renderNetworkDiagram();
+  scheduleNetworkRender();
 }
 function networkZoom(factor, centerX, centerY){
   if(!networkViewport) return;
@@ -5770,7 +5863,7 @@ function createOrderBetween(fromNodeId, toNodeId){
     criteria:[], conditions:[], packageOut:'', packageMass:'', sortNode:''};
   orders.push(o);
   networkSelection = {type:'order', id:o.id};
-  expandedOrders.add(o.id);
+  expandedOrders = new Set([o.id]);
   renderOrders(); // also cascades to buildXML, but that only
                    // schedules a deferred diagram redraw (for coalescing rapid-fire changes) --
                    // this is a discrete one-shot action, so render the diagram synchronously here.
@@ -5783,9 +5876,9 @@ function selectNetworkElement(type, id){
   renderNetworkDiagram();
   if(type==='order'){
     // Clicking an order's arrow on the diagram expands the same row in the Orders list below.
-    expandedOrders.add(id);
-    renderOrderList();
+    expandedOrders = new Set([id]);
   }
+  renderOrderList(); // also syncs the panel's visibility for every selection type, not just 'order'
 }
 function renderNetworkInspector(){
   const el = document.getElementById('network-inspector');
